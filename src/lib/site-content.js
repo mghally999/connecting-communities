@@ -9,30 +9,30 @@ export const siteSettings = {
   title: "Connecting Communities",
   tagline: "Connection is only the beginning",
   navLinks: [
-    { label: "Home",                href: "/" },
-    { label: "About",               href: "/about" },
-    { label: "Our Model",           href: "/our-model" },
+    { label: "Home", href: "/" },
+    { label: "About", href: "/about" },
+    { label: "Our Model", href: "/our-model" },
     { label: "Ecosystem in Action", href: "/ecosystem" },
-    { label: "Partners",            href: "/partners" },
-    { label: "Contact",             href: "/contact" },
+    { label: "Partners", href: "/partners" },
+    { label: "Contact", href: "/contact" },
   ],
   footerColumns: [
     {
       links: [
-        { label: "HOME",  href: "/" },
+        { label: "HOME", href: "/" },
         { label: "ABOUT", href: "/about" },
       ],
     },
     {
       links: [
-        { label: "OUR MODEL",          href: "/our-model" },
+        { label: "OUR MODEL", href: "/our-model" },
         { label: "ECO SYSTEM IN ACTION", href: "/ecosystem" },
       ],
     },
     {
       links: [
         { label: "PARTNERS", href: "/partners" },
-        { label: "CONTACT",  href: "/contact" },
+        { label: "CONTACT", href: "/contact" },
       ],
     },
   ],
@@ -56,12 +56,14 @@ export const homeContent = {
   approachItems: [
     {
       label: "ACCESS",
-      caption: "A single connection can open the door to knowledge and possibility",
+      caption:
+        "A single connection can open the door to knowledge and possibility",
       image: "/images/home/02-approach-access-boy.jpg",
     },
     {
       label: "OPPORTUNITY",
-      caption: "When communities connect, people can grow, create, and thrive together",
+      caption:
+        "When communities connect, people can grow, create, and thrive together",
       image: "/images/home/03-approach-opportunity-hands.jpg",
     },
     {
@@ -76,20 +78,40 @@ export const homeContent = {
   impactCtaLabel: "LEARN MORE",
   impactCtaHref: "/ecosystem",
   impactStats: [
-    { value: "65%",   label: "Communities within our network now have first-time digital access" },
-    { value: "500K",  label: "Students reached through edtech-enabled learning platforms" },
-    { value: "1500+", label: "Entrepreneurs connected to new markets and digital tools" },
-    { value: "85%",   label: "Of our community smart hubs are powered by renewable energy sources" },
+    {
+      value: "65%",
+      label:
+        "Communities within our network now have first-time digital access",
+    },
+    {
+      value: "500K",
+      label: "Students reached through edtech-enabled learning platforms",
+    },
+    {
+      value: "1500+",
+      label: "Entrepreneurs connected to new markets and digital tools",
+    },
+    {
+      value: "85%",
+      label:
+        "Of our community smart hubs are powered by renewable energy sources",
+    },
   ],
 
   partnersTitle: "Our partners",
   partnerSlides: [
-    { label: "Connectivity",       image: "/images/about/08-sector-connectivity.jpg" },
-    { label: "FinTech",            image: "/images/home/06-partner-fintech-arch.jpg" },
-    { label: "EdTech",             image: "/images/home/05-partner-edtech-tree.jpg" },
-    { label: "WashTech",           image: "/images/about/09-sector-washtech.jpg" },
-    { label: "AgriTech",           image: "/images/about/11-sector-agritech.jpg" },
-    { label: "Tele-conferencing",  image: "/images/about/10-sector-teleconferencing.jpg" },
+    {
+      label: "Connectivity",
+      image: "/images/about/08-sector-connectivity.jpg",
+    },
+    { label: "FinTech", image: "/images/home/06-partner-fintech-arch.jpg" },
+    { label: "EdTech", image: "/images/home/05-partner-edtech-tree.jpg" },
+    { label: "WashTech", image: "/images/about/09-sector-washtech.jpg" },
+    { label: "AgriTech", image: "/images/about/11-sector-agritech.jpg" },
+    {
+      label: "Tele-conferencing",
+      image: "/images/about/10-sector-teleconferencing.jpg",
+    },
   ],
 
   contactTitle: "Contact",
@@ -115,12 +137,18 @@ export const aboutContent = {
     "Connecting Communities brings together specialised businesses across essential services, aligning their capabilities through a shared platform, each operating independently, supported by best-in-class technology partners. Within Connecting Communities, selected capabilities are integrated into a single ecosystem, allowing proven platforms to work together to meet essential needs and enable sustainable community progress.",
 
   sectorCards: [
-    { label: "Connectivity",       image: "/images/about/08-sector-connectivity.jpg" },
-    { label: "FinTech",            image: "/images/home/06-partner-fintech-arch.jpg" },
-    { label: "EdTech",             image: "/images/home/05-partner-edtech-tree.jpg" },
-    { label: "WashTech",           image: "/images/about/09-sector-washtech.jpg" },
-    { label: "AgriTech",           image: "/images/about/11-sector-agritech.jpg" },
-    { label: "Tele-conferencing",  image: "/images/about/10-sector-teleconferencing.jpg" },
+    {
+      label: "Connectivity",
+      image: "/images/about/08-sector-connectivity.jpg",
+    },
+    { label: "FinTech", image: "/images/home/06-partner-fintech-arch.jpg" },
+    { label: "EdTech", image: "/images/home/05-partner-edtech-tree.jpg" },
+    { label: "WashTech", image: "/images/about/09-sector-washtech.jpg" },
+    { label: "AgriTech", image: "/images/about/11-sector-agritech.jpg" },
+    {
+      label: "Tele-conferencing",
+      image: "/images/about/10-sector-teleconferencing.jpg",
+    },
   ],
 
   akaTitle: "AKA Partners",
@@ -132,10 +160,26 @@ export const aboutContent = {
 
   leadersTitle: "Our leaders",
   leaders: [
-    { name: "KARIM KHOJA",  role: "Founding Partner and\nChairman, AKA Partners", image: "/images/about/04-leader-1.jpg" },
-    { name: "ALTAF LADAK",  role: "Founding Partner,\nAKA Partners",              image: "/images/about/05-leader-2.jpg" },
-    { name: "AMYN SAMJI",   role: "Founding Partner,\nAKA Partners",              image: "/images/about/06-leader-3.jpg" },
-    { name: "NASHIR JIWANI", role: "Executive Partner,\nAKA Partners",             image: "/images/about/07-leader-4.jpg" },
+    {
+      name: "KARIM KHOJA",
+      role: "Founding Partner and\nChairman, AKA Partners",
+      image: "/images/about/05-leader-2.jpg",
+    },
+    {
+      name: "ALTAF LADAK",
+      role: "Founding Partner,\nAKA Partners",
+      image: "/images/about/06-leader-3.jpg",
+    },
+    {
+      name: "AMYN SAMJI",
+      role: "Founding Partner,\nAKA Partners",
+      image: "/images/about/07-leader-4.jpg",
+    },
+    {
+      name: "NASHIR JIWANI",
+      role: "Executive Partner,\nAKA Partners",
+      image: "/images/about/04-leader-1.jpg",
+    },
   ],
 };
 
@@ -156,20 +200,75 @@ export const ourModelContent = {
   ecosystemBody:
     "As community smart hubs and digital centers connect across different locations, they form a growing local network that can evolve over time. This model enables services to reach people where they are, while remaining part of a single, adaptable ecosystem designed to support long-term community progress.",
 
-  launchTitle: "Our launch",
+  // Used by OurModelJourney as the section intro (above the scrollytelling)
+  launchTitle: "Inside a TrAC",
   launchBody:
-    "Our launch will roll out across East Africa, beginning with Rwanda as our regional headquarters, with X community smart hubs and X digital centers by the end of 2026.",
+    "Our launch begins in Rwanda — our regional headquarters — and rolls out across East Africa with X community smart hubs and X digital centers by the end of 2026. Step inside one of our Transformation Aspirational Centres to see what that looks like.",
 
-  countryName: "RWANDA",
-  countryBody:
-    "East Africa (CCA) marks our first rollout: an over all 45 million venture with 15 already invested into Rwanda as our regional headquarters. From there, we are expanding into other areas of East Africa, laying the foundation for a connected East Africa.",
-  countryImage: "/images/our-model/05-village-aerial-landscape.jpg",
-  mapImage:     "/images/our-model/04-rwanda-map-grey.jpg",
-
+  // Closing band beneath the journey (kept from the previous launch section)
   bottomBandImage: "/images/our-model/05-village-aerial-landscape.jpg",
   bottomBandTitle: "X community smart hubs\nY digital centers",
-  bottomBandSub: "by the end of 2026",
+  bottomBandSub: "by the end of 2026 — beginning in Rwanda",
 };
+
+/**
+ * Scroll-driven scenes for the TrAC walkthrough on the Our Model page.
+ * Each scene becomes one full viewport of scroll distance.
+ *
+ * To swap in real .glb/.gltf models from AKA Partners later, replace the
+ * `image` field with a `model` field and update SceneLayer in
+ * OurModelJourney.js to render <Canvas><Model/></Canvas>.
+ */
+export const trACScenes = [
+  {
+    id: "exterior",
+    label: "Exterior",
+    title: "A TrAC at the heart of the community",
+    body: "Each Transformation Aspirational Centre — TrAC — is a single welcoming address where every Connecting Communities service lives side by side. This is what arriving at one looks like.",
+    image: "/images/our-model/journey/01-exterior.jpg",
+    alt: "Exterior of a TrAC building with TrAC and aspire signage at dusk",
+  },
+  {
+    id: "reception",
+    label: "Reception",
+    title: "One front desk for everything",
+    body: "Aspire microfinance and TrAC services share a single counter, so a farmer applying for a loan, a parent enrolling a child, and a trader topping up data all start in the same place.",
+    image: "/images/our-model/journey/02-reception-aspire.jpg",
+    alt: "Reception area with Aspire microfinance and TrAC counters",
+  },
+  {
+    id: "tele-conferencing",
+    label: "Tele-conferencing",
+    title: "Connecting people across borders",
+    body: "Private rooms equipped for tele-conferencing let community members meet a doctor, an instructor, or a relative anywhere in the world — without leaving the village.",
+    image: "/images/our-model/journey/03-trac-room.jpg",
+    alt: "Tele-conferencing room with desk, monitor and TrAC branding",
+  },
+  {
+    id: "edtech",
+    label: "EdTech",
+    title: "Learning, locally",
+    body: "Classrooms host literacy, vocational training, and digital-skills programmes — built into the same building as the rest of the services families already rely on.",
+    image: "/images/our-model/journey/05-classroom.jpg",
+    alt: "Classroom with shared desks and screens",
+  },
+  {
+    id: "agritech",
+    label: "AgriTech",
+    title: "Tools for the farms outside the door",
+    body: "AgroEdu counters give smallholder farmers access to diversified-crop guidance, market prices, and the buyers who want to source from them.",
+    image: "/images/our-model/journey/07-agroedu.jpg",
+    alt: "AgroEdu counter with farming education poster",
+  },
+  {
+    id: "marketplace",
+    label: "Marketplace",
+    title: "Where the local economy lives",
+    body: "Shelving, payment, and inventory tools turn the same building into a community marketplace — owned by the people who use it, supported by everything else under this roof.",
+    image: "/images/our-model/journey/08-marketplace.jpg",
+    alt: "Marketplace and retail shelving area with chalkboard pricing",
+  },
+];
 
 export const ecosystemContent = {
   heroTitle: "This is what\nconnection\nlooks like",
@@ -177,23 +276,111 @@ export const ecosystemContent = {
   heroImage: "/images/ecosystem/01-hero-market-shop.jpg",
 
   categories: [
-    { id: "people",       label: "People" },
+    { id: "people", label: "People" },
     { id: "partnerships", label: "Partnerships" },
-    { id: "education",    label: "Education" },
-    { id: "leaders",      label: "Leaders" },
+    { id: "education", label: "Education" },
+    { id: "leaders", label: "Leaders" },
   ],
   cards: [
-    { title: "Farmer in highlands",   category: "people",       image: "/images/ecosystem/02-card-farmer-rice.jpg",          size: "md", row: 1, col: 3,  rotate: -2 },
-    { title: "Bridge crossing",       category: "people",       image: "/images/ecosystem/03-card-farmer-sunset.jpg", size: "md", row: 1, col: 5,  rotate: 1 },
-    { title: "Market vendor",         category: "people",       image: "/images/ecosystem/01-hero-market-shop.jpg",          size: "sm", row: 1, col: 6,  rotate: 0 },
-    { title: "Sunrise meeting",       category: "partnerships", image: "/images/ecosystem/03-card-farmer-sunset.jpg",        size: "lg", row: 1, col: 8,  rotate: 1 },
-    { title: "Hands joined",          category: "partnerships", image: "/images/about/08-sector-connectivity.jpg",           size: "md", row: 1, col: 9,  rotate: -1 },
-    { title: "Community elder",       category: "leaders",      image: "/images/ecosystem/04-card-woman-laundry.jpg",        size: "md", row: 3, col: 2,  rotate: -2 },
-    { title: "Children with laptop",  category: "education",    image: "/images/home/05-partner-edtech-tree.jpg",            size: "md", row: 3, col: 4,  rotate: 0 },
-    { title: "Water collection",      category: "people",       image: "/images/ecosystem/06-card-water-tap.jpg",            size: "md", row: 3, col: 5,  rotate: 0 },
-    { title: "Telehealth booth",      category: "leaders",      image: "/images/about/11-sector-agritech.jpg",               size: "sm", row: 3, col: 7,  rotate: 2 },
-    { title: "Aerial market",         category: "leaders",      image: "/images/ecosystem/08-card-aerial-market.jpg",        size: "md", row: 3, col: 8,  rotate: 0 },
-    { title: "Mountain bridge",       category: "partnerships", image: "/images/home/04-hero-mountain-laptop.jpg",           size: "md", row: 3, col: 10, rotate: 1 },
+    {
+      title: "Farmer in highlands",
+      category: "people",
+      image: "/images/ecosystem/02-card-farmer-rice.jpg",
+      size: "md",
+      row: 1,
+      col: 3,
+      rotate: -2,
+    },
+    {
+      title: "Bridge crossing",
+      category: "people",
+      image: "/images/ecosystem/03-card-farmer-sunset.jpg",
+      size: "md",
+      row: 1,
+      col: 5,
+      rotate: 1,
+    },
+    {
+      title: "Market vendor",
+      category: "people",
+      image: "/images/ecosystem/01-hero-market-shop.jpg",
+      size: "sm",
+      row: 1,
+      col: 6,
+      rotate: 0,
+    },
+    {
+      title: "Sunrise meeting",
+      category: "partnerships",
+      image: "/images/ecosystem/03-card-farmer-sunset.jpg",
+      size: "lg",
+      row: 1,
+      col: 8,
+      rotate: 1,
+    },
+    {
+      title: "Hands joined",
+      category: "partnerships",
+      image: "/images/about/08-sector-connectivity.jpg",
+      size: "md",
+      row: 1,
+      col: 9,
+      rotate: -1,
+    },
+    {
+      title: "Community elder",
+      category: "leaders",
+      image: "/images/ecosystem/04-card-woman-laundry.jpg",
+      size: "md",
+      row: 3,
+      col: 2,
+      rotate: -2,
+    },
+    {
+      title: "Children with laptop",
+      category: "education",
+      image: "/images/home/05-partner-edtech-tree.jpg",
+      size: "md",
+      row: 3,
+      col: 4,
+      rotate: 0,
+    },
+    {
+      title: "Water collection",
+      category: "people",
+      image: "/images/ecosystem/06-card-water-tap.jpg",
+      size: "md",
+      row: 3,
+      col: 5,
+      rotate: 0,
+    },
+    {
+      title: "Telehealth booth",
+      category: "leaders",
+      image: "/images/about/11-sector-agritech.jpg",
+      size: "sm",
+      row: 3,
+      col: 7,
+      rotate: 2,
+    },
+    {
+      title: "Aerial market",
+      category: "leaders",
+      image: "/images/ecosystem/08-card-aerial-market.jpg",
+      size: "md",
+      row: 3,
+      col: 8,
+      rotate: 0,
+    },
+    {
+      title: "Mountain bridge",
+      category: "partnerships",
+      image: "/images/home/04-hero-mountain-laptop.jpg",
+      size: "md",
+      row: 3,
+      col: 10,
+      rotate: 1,
+    },
   ],
 };
 
@@ -227,11 +414,17 @@ export const partnersContent = {
     "Connecting Communities brings together specialised businesses across essential services, aligning their capabilities through a shared platform, each operating independently, supported by best-in-class technology partners. Within Connecting Communities, selected capabilities are integrated into a single ecosystem, allowing proven platforms to work together to meet essential needs and enable sustainable community progress.",
 
   partnerCards: [
-    { label: "Connectivity",       image: "/images/partners/08-sector-connectivity.jpg" },
-    { label: "FinTech",            image: "/images/partners/06-partner-fintech-arch.jpg" },
-    { label: "EdTech",             image: "/images/partners/05-partner-edtech-tree.jpg" },
-    { label: "WashTech",           image: "/images/partners/09-sector-washtech.jpg" },
-    { label: "AgriTech",           image: "/images/partners/11-sector-agritech.jpg" },
-    { label: "Tele-conferencing",  image: "/images/partners/10-sector-teleconferencing.jpg" },
+    {
+      label: "Connectivity",
+      image: "/images/partners/08-sector-connectivity.jpg",
+    },
+    { label: "FinTech", image: "/images/partners/06-partner-fintech-arch.jpg" },
+    { label: "EdTech", image: "/images/partners/05-partner-edtech-tree.jpg" },
+    { label: "WashTech", image: "/images/partners/09-sector-washtech.jpg" },
+    { label: "AgriTech", image: "/images/partners/11-sector-agritech.jpg" },
+    {
+      label: "Tele-conferencing",
+      image: "/images/partners/10-sector-teleconferencing.jpg",
+    },
   ],
 };
