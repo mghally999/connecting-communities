@@ -1,0 +1,22 @@
+import HomeHero from "@/components/home/HomeHero";
+import WhyWeExist from "@/components/home/WhyWeExist";
+import OurApproach from "@/components/home/OurApproach";
+import ImpactStats from "@/components/home/ImpactStats";
+import PartnerCarousel from "@/components/home/PartnerCarousel";
+import ContactBlock from "@/components/ContactBlock";
+import { homeContent } from "@/lib/site-content";
+
+export const metadata = { title: "Home — Connecting Communities" };
+
+export default function HomePage() {
+  return (
+    <>
+      <HomeHero data={homeContent} />
+      <WhyWeExist data={homeContent} />
+      <OurApproach data={homeContent} />
+      <ImpactStats data={homeContent} />
+      <PartnerCarousel data={homeContent} />
+      <ContactBlock title={homeContent.contactTitle} ctaLabel={homeContent.contactCtaLabel} />
+    </>
+  );
+}

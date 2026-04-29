@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120" role="img" aria-label="Connecting Communities">
+  <g fill="#21384F">
+    <path d="M 110,8 L 38,8 Q 8,8 8,38 L 8,82 Q 8,112 38,112 L 110,112 L 110,86 L 44,86 Q 34,86 34,76 L 34,44 Q 34,34 44,34 L 110,34 Z"/>
+    <path d="M 232,8 L 160,8 Q 130,8 130,38 L 130,82 Q 130,112 160,112 L 232,112 L 232,86 L 166,86 Q 156,86 156,76 L 156,44 Q 156,34 166,34 L 232,34 Z"/>
+  </g>
+</svg>
