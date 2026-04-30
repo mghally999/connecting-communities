@@ -1,171 +1,196 @@
 /**
  * journey-chapters.js
  *
- * The 8-chapter walkthrough timeline. Each chapter declares a complete
- * scene state (camera, model rot, lighting, background, fog, AND copy
- * + layout). The renderer (JourneyScene + Overlay) lerps between
- * adjacent chapters using a continuous fractional `chapterRef.current`
- * value driven by useChapterNav.
+ * 9-chapter cinematic walkthrough timeline. Each chapter declares a
+ * complete scene state (camera, model rotation, model wireframe,
+ * model visibility, lighting, fog, background, plus copy + layout).
  *
- * LAYOUTS (matches the Pyramids of Meroë reference):
- *   - "title-center"   : full-bleed model with title overlay centered
- *                        (used for the opening shot)
- *   - "text-only-dark" : black background, full-width centered text,
- *                        the model is hidden / off-frame
- *   - "side-left"      : model fills the right half, caption block on
- *                        the left margin
- *   - "side-right"     : model fills the left half, caption block on
- *                        the right margin
- *   - "wireframe"      : cream background, model rendered as orange
- *                        wireframe, caption on the side
+ * Driven by a continuous fractional `chapter` index that lerps between
+ * adjacent chapter keyframes. Same index value → identical scene state.
  *
- * Camera positions are calibrated for the real building.glb at
- * SCALE=0.85 (footprint ~5m × 5m, height ~5.4m, base at y=0).
+ * Chapter 0 is the GLOBE intro — a photorealistic Earth rotated to
+ * show East Africa, with the globe zooming slowly toward Rwanda. After
+ * the globe chapters, the scene cuts to the building model for the
+ * architectural walkthrough.
+ *
+ * Building footprint after SCALE=0.85: ~5m × 5.4m × 5m, base at y=0.
  */
 
 export const CHAPTERS = [
-  /* 0 — OPENING SHOT
-     Establishing 3/4 wide angle of the building. Caption block sits at
-     bottom-left so it never overlaps the model. */
+  /* ------------------------------------------------------------------ */
+  /* 0 — GLOBE establishing shot                                        */
+  /* The globe sits at world-position 0,0,0 with a radius of ~5m. The
+   * camera starts a long way out and frames the planet against deep
+   * space. Scene type "globe" is interpreted by JourneyScene to render
+   * the earth instead of the building.                                  */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "globe-establish",
+    layout: "bottom-left",
+    scene: "globe",
+    eyebrow: "01 / 09",
+    label: "From orbit",
+    title: "From the air, every community is a node",
+    body:
+      "Connecting Communities is a single network of essential services that links villages across East Africa.",
+    cam:    { x:  0.0, y:  0.0, z: 22.0 },
+    target: { x:  0.0, y:  0.0, z:  0.0 },
+    globe:  { rotY: 0.0, scale: 1.00, visible: 1.0 },
+    model:  { rotY: 0.0, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 0.0 },
+    light:  { keyIntensity: 1.0, ambIntensity: 0.10, hue: "cool" },
+    bg:     "#04060a",
+    fog:    0.0,
+  },
+
+  /* 1 — GLOBE pull in toward East Africa */
+  {
+    id: "globe-zoom",
+    layout: "bottom-left",
+    scene: "globe",
+    eyebrow: "02 / 09",
+    label: "East Africa",
+    title: "Beginning in Rwanda, scaling across the region",
+    body:
+      "Rwanda is our regional headquarters. From there we expand into the DRC, Tanzania, Uganda, and Kenya — connecting communities across East Africa.",
+    /* Closer camera, and we offset the globe so Rwanda sits near
+     * frame centre. Earth radius is 5m so a small XY offset shifts
+     * the visible region. */
+    cam:    { x:  0.0, y:  0.5, z: 12.0 },
+    target: { x:  0.0, y:  0.5, z:  0.0 },
+    globe:  { rotY: 0.6, scale: 1.05, visible: 1.0 },
+    model:  { rotY: 0.0, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 0.0 },
+    light:  { keyIntensity: 1.2, ambIntensity: 0.18, hue: "cool" },
+    bg:     "#080d18",
+    fog:    0.0,
+  },
+
+  /* 2 — TRANSITION TEXT (model hidden, dark)                            */
+  {
+    id: "intro-text",
+    layout: "text-only-dark",
+    scene: "model",
+    eyebrow: "03 / 09",
+    label: "Inside the hubsite",
+    title: "A single welcoming address for every essential service.",
+    body:
+      "The hubsite is the building that holds it all together — connectivity, finance, education, agriculture, water, and tele-conferencing under one roof.",
+    cam:    { x:  0.0, y:  3.0, z: 30.0 },
+    target: { x:  0.0, y:  2.0, z:  0.0 },
+    globe:  { rotY: 0.0, scale: 1.00, visible: 0.0 },
+    model:  { rotY: 0.0, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 0.0 },
+    light:  { keyIntensity: 0.10, ambIntensity: 0.10, hue: "cool" },
+    bg:     "#0a0d12",
+    fog:    1.0,
+  },
+
+  /* 3 — BUILDING hero 3/4 wide                                          */
   {
     id: "open",
     layout: "bottom-left",
-    eyebrow: "01 / 08",
+    scene: "model",
+    eyebrow: "04 / 09",
     label: "The hubsite",
     title: "Inside a TrAC",
     body:
-      "A guided walkthrough of one Connecting Communities Transformation Aspirational Centre.",
+      "Each Transformation Aspirational Centre — TrAC — brings every Connecting Communities service together.",
     cam:    { x:  7.0, y:  4.5, z: 14.0 },
     target: { x:  0.0, y:  2.6, z:  0.0 },
+    globe:  { rotY: 0.0, scale: 1.00, visible: 0.0 },
     model:  { rotY: -0.30, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 1.0 },
     light:  { keyIntensity: 1.40, ambIntensity: 0.70, hue: "warm" },
     bg:     "#fff6eb",
     fog:    0.0,
   },
 
-  /* 1 — ESTABLISHING TEXT
-     Black background, model hidden, full-width centered text.
-     Sets the cinematic tone like Pyramids' "Uncover a city..." */
-  {
-    id: "intro-text",
-    layout: "text-only-dark",
-    eyebrow: "02 / 08",
-    label: "Beginning in Rwanda",
-    title: "A single welcoming address for every essential service.",
-    body:
-      "Connecting Communities is launching across East Africa, beginning in Rwanda. The hubsite is the building that holds it all together.",
-    cam:    { x:  0.0, y:  3.0, z: 30.0 },     // pulled WAY back
-    target: { x:  0.0, y:  2.0, z:  0.0 },
-    model:  { rotY:  0.0, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 0.0 },
-    light:  { keyIntensity: 0.10, ambIntensity: 0.10, hue: "cool" },
-    bg:     "#0a0d12",
-    fog:    1.0,
-  },
-
-  /* 2 — APPROACH (left text + side-on view)
-     Model fills the right half, copy block on the left. */
+  /* 4 — APPROACH (low + side)                                          */
   {
     id: "approach",
     layout: "side-left",
-    eyebrow: "03 / 08",
+    scene: "model",
+    eyebrow: "05 / 09",
     label: "The approach",
     title: "Built for the community it serves",
     body:
       "Each TrAC sits within walking distance of the families it serves — close to the road, the market, and the surrounding farms.",
-    cam:    { x: -7.0, y:  3.5, z:  9.0 },
+    cam:    { x: -7.5, y:  2.5, z:  9.0 },
     target: { x:  0.5, y:  2.4, z:  0.0 },
+    globe:  { rotY: 0.0, scale: 1.00, visible: 0.0 },
     model:  { rotY:  0.20, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 1.0 },
     light:  { keyIntensity: 1.40, ambIntensity: 0.65, hue: "golden" },
     bg:     "#f4dcb6",
-    fog:    0.0,
+    fog:    0.05,
   },
 
-  /* 3 — FRONT DOOR (right text + dolly-in)
-     Pushed in close, looking at the entrance.  Caption on the right. */
+  /* 5 — FRONT DOOR (close, eye-level)                                  */
   {
     id: "frontdoor",
     layout: "side-right",
-    eyebrow: "04 / 08",
+    scene: "model",
+    eyebrow: "06 / 09",
     label: "One front door",
     title: "Every service starts here",
     body:
       "Aspire microfinance and TrAC services share a single counter, so a farmer applying for a loan and a parent enrolling a child both start in the same place.",
-    cam:    { x:  0.0, y:  2.4, z:  7.0 },
+    cam:    { x:  0.0, y:  2.4, z:  7.5 },
     target: { x:  0.0, y:  2.2, z:  0.0 },
-    model:  { rotY:  0.0, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 1.0 },
+    globe:  { rotY: 0.0, scale: 1.00, visible: 0.0 },
+    model:  { rotY:  0.0,  scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 1.0 },
     light:  { keyIntensity: 1.50, ambIntensity: 0.70, hue: "warm" },
     bg:     "#fff6eb",
     fog:    0.0,
   },
 
-  /* 4 — TRANSITION TO INTERIOR (text-only, dark)
-     Like Pyramids' chamber transition: black/dark, full-width centered
-     text giving the next idea before we pull back to a new viewpoint. */
+  /* 6 — FROM ABOVE (top-down)                                          */
   {
-    id: "interior-text",
-    layout: "text-only-dark",
-    eyebrow: "05 / 08",
-    label: "Inside the hubsite",
-    title: "Reception, Tele-conferencing, EdTech, AgriTech.",
-    body:
-      "Tele-conferencing rooms, classrooms, and AgroEdu counters all live under the same roof, behind the same single front desk.",
-    cam:    { x:  0.0, y:  2.0, z: 30.0 },
-    target: { x:  0.0, y:  2.0, z:  0.0 },
-    model:  { rotY:  0.0, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 0.0 },
-    light:  { keyIntensity: 0.10, ambIntensity: 0.10, hue: "interior" },
-    bg:     "#0a0d12",
-    fog:    1.0,
-  },
-
-  /* 5 — SKY VIEW (left text + high angle)
-     Pull up high, looking down the roofline. */
-  {
-    id: "skyview",
-    layout: "side-left",
-    eyebrow: "06 / 08",
+    id: "topdown",
+    layout: "bottom-right",
+    scene: "model",
+    eyebrow: "07 / 09",
     label: "From above",
     title: "A complete site, by design",
     body:
-      "A modular roofline accommodates tele-conferencing, classrooms, AgroEdu counters and a community marketplace under one continuous structure.",
-    cam:    { x:  4.5, y: 10.0, z: 10.5 },
-    target: { x:  0.0, y:  1.8, z:  0.0 },
+      "A modular roofline accommodates tele-conferencing rooms, classrooms, AgroEdu counters and a community marketplace under one continuous structure.",
+    cam:    { x:  0.5, y: 14.0, z:  0.6 },
+    target: { x:  0.0, y:  0.0, z:  0.0 },
+    globe:  { rotY: 0.0, scale: 1.00, visible: 0.0 },
     model:  { rotY:  0.30, scale: 1.00, posY: 0.0, wireframe: 0.0, visible: 1.0 },
     light:  { keyIntensity: 1.30, ambIntensity: 0.55, hue: "warm" },
     bg:     "#dde9f1",
     fog:    0.10,
   },
 
-  /* 6 — WIREFRAME / ARCHITECTURE
-     The Pyramids "underground tomb" moment: cream background, model
-     rendered as bright orange wireframe, caption on the LEFT. */
+  /* 7 — X-RAY wireframe                                                */
   {
     id: "wireframe",
-    layout: "wireframe",
-    eyebrow: "07 / 08",
+    layout: "side-left",
+    scene: "model",
+    eyebrow: "08 / 09",
     label: "The architecture",
     title: "How the model fits together",
     body:
       "Each block is a service. Together they make a single, replicable system that grows with the network — stripped to its lines, the logic is visible.",
-    cam:    { x:  6.5, y:  5.5, z: 10.0 },
+    cam:    { x:  6.5, y:  4.5, z: 11.0 },
     target: { x:  0.0, y:  2.5, z:  0.0 },
-    model:  { rotY: -0.50, scale: 1.00, posY: 0.0, wireframe: 1.0, visible: 1.0 },
-    light:  { keyIntensity: 0.20, ambIntensity: 0.10, hue: "ember" },
+    globe:  { rotY: 0.0, scale: 1.00, visible: 0.0 },
+    model:  { rotY: -0.40, scale: 1.00, posY: 0.0, wireframe: 1.0, visible: 1.0 },
+    light:  { keyIntensity: 0.40, ambIntensity: 0.20, hue: "ember" },
     bg:     "#fff6eb",
     fog:    0.0,
   },
 
-  /* 7 — FINALE
-     Warm full reveal, slow rotation, slight zoom. Caption bottom-right. */
+  /* 8 — FINALE (warm wide)                                             */
   {
     id: "finale",
-    layout: "bottom-right",
-    eyebrow: "08 / 08",
+    layout: "bottom-left",
+    scene: "model",
+    eyebrow: "09 / 09",
     label: "Together",
     title: "One building. Many services. One community.",
     body:
       "Connecting Communities exists to put every essential service within one welcoming address — beginning in Rwanda, scaling across East Africa.",
-    cam:    { x:  0.0, y:  3.5, z: 12.0 },
+    cam:    { x:  0.0, y:  3.5, z: 13.0 },
     target: { x:  0.0, y:  2.5, z:  0.0 },
+    globe:  { rotY: 0.0, scale: 1.00, visible: 0.0 },
     model:  { rotY:  0.30, scale: 1.04, posY: 0.0, wireframe: 0.0, visible: 1.0 },
     light:  { keyIntensity: 1.50, ambIntensity: 0.70, hue: "warm" },
     bg:     "#fff6eb",
@@ -174,21 +199,18 @@ export const CHAPTERS = [
 ];
 
 /* -------------------------------------------------------------------------- */
-/* Math + interpolation                                                        */
+/* Math + interpolation                                                       */
 /* -------------------------------------------------------------------------- */
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
 
-/* Sample a continuous fractional chapter (e.g. 2.4) → blended scene
- * state. Numeric values lerp; string fields (hue, bg) snap halfway. */
 export function sampleAt(c) {
   const i = Math.floor(c);
   const f = c - i;
   const a = CHAPTERS[Math.max(0, Math.min(CHAPTERS.length - 1, i))];
   const b = CHAPTERS[Math.max(0, Math.min(CHAPTERS.length - 1, i + 1))];
   const t = clamp(f, 0, 1);
-
   return {
     camX: lerp(a.cam.x, b.cam.x, t),
     camY: lerp(a.cam.y, b.cam.y, t),
@@ -196,6 +218,9 @@ export function sampleAt(c) {
     targetX: lerp(a.target.x, b.target.x, t),
     targetY: lerp(a.target.y, b.target.y, t),
     targetZ: lerp(a.target.z, b.target.z, t),
+    globeRotY: lerp(a.globe.rotY, b.globe.rotY, t),
+    globeScale: lerp(a.globe.scale, b.globe.scale, t),
+    globeVisible: lerp(a.globe.visible, b.globe.visible, t),
     modelRotY: lerp(a.model.rotY, b.model.rotY, t),
     modelScale: lerp(a.model.scale, b.model.scale, t),
     modelPosY: lerp(a.model.posY, b.model.posY, t),
@@ -213,16 +238,12 @@ export function sampleAt(c) {
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Hue + bg colour mixing                                                     */
-/* -------------------------------------------------------------------------- */
-
 export const HUE_PALETTE = {
   warm:     { r: 1.00, g: 0.86, b: 0.65 },
   cool:     { r: 0.55, g: 0.70, b: 0.95 },
   golden:   { r: 1.00, g: 0.78, b: 0.45 },
   interior: { r: 1.00, g: 0.72, b: 0.45 },
-  ember:    { r: 1.00, g: 0.45, b: 0.18 },
+  ember:    { r: 1.00, g: 0.55, b: 0.30 },
 };
 
 export function mixHue(hueA, hueB, t) {

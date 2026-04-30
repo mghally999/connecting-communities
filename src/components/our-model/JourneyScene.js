@@ -4,34 +4,49 @@ import { useRef, Suspense } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import TrACModel from "./TrACModel";
+import Globe from "./Globe";
 import { sampleAt, mixHue, mixHex } from "@/lib/journey-chapters";
 
 /**
  * SceneRig
  *
- * Reads the chapterRef (continuous fractional 0..N-1) every frame and
- * applies the SAMPLED scene state — camera, model rotation, lights, fog,
- * background, wireframe blend, model visibility.
+ * Reads chapterRef + mouseRef every frame and applies the sampled
+ * scene state. Both the Globe and the building Model are mounted at
+ * once; their visibility is faded via shared refs so the whole
+ * 9-chapter timeline is one continuous shot.
  *
- * EVERY visual property in the WebGL scene flows from a single source of
- * truth: `chapterRef.current`. Same chapter index → same scene, every
- * time.
+ * Mouse parallax: when the mouse moves, the camera offsets by a
+ * small fraction of its distance from target. Smoothed for a lazy
+ * cinematic feel.
  */
-function SceneRig({ chapterRef, wireframeRef, visibilityRef }) {
+function SceneRig({ chapterRef, mouseRef, wireframeRef, modelVisibilityRef, globeRotRef, globeVisRef }) {
   const { camera, scene } = useThree();
   const modelRef = useRef();
+  const globeRef = useRef();
   const keyLightRef = useRef();
   const fillLightRef = useRef();
   const ambientRef = useRef();
 
-  const _bgColor = useRef(new THREE.Color("#fff6eb"));
-  const _camTarget = useRef(new THREE.Vector3(0, 2.4, 0));
+  const mouseSmooth = useRef({ x: 0, y: 0 });
+  const _bgColor = useRef(new THREE.Color("#04060a"));
+  const _camTarget = useRef(new THREE.Vector3(0, 0, 0));
 
-  useFrame(() => {
+  useFrame((state, dt) => {
     const c = chapterRef.current ?? 0;
     const s = sampleAt(c);
 
-    camera.position.set(s.camX, s.camY, s.camZ);
+    const mx = mouseRef?.current?.x ?? 0;
+    const my = mouseRef?.current?.y ?? 0;
+    const k = 1 - Math.pow(0.001, Math.min(dt || 0.016, 0.1));
+    mouseSmooth.current.x += (mx - mouseSmooth.current.x) * k;
+    mouseSmooth.current.y += (my - mouseSmooth.current.y) * k;
+
+    const dist = Math.hypot(s.camX, s.camZ) || 1;
+    const PARALLAX = 0.035;
+    const pX = mouseSmooth.current.x * dist * PARALLAX;
+    const pY = -mouseSmooth.current.y * dist * PARALLAX * 0.6;
+
+    camera.position.set(s.camX + pX, s.camY + pY, s.camZ);
     _camTarget.current.set(s.targetX, s.targetY, s.targetZ);
     camera.lookAt(_camTarget.current);
 
@@ -42,7 +57,9 @@ function SceneRig({ chapterRef, wireframeRef, visibilityRef }) {
     }
 
     wireframeRef.current = s.wireframe;
-    visibilityRef.current = s.modelVisible;
+    modelVisibilityRef.current = s.modelVisible;
+    globeRotRef.current = s.globeRotY;
+    globeVisRef.current = s.globeVisible;
 
     const hue = mixHue(s.hueA, s.hueB, s.hueT);
     if (keyLightRef.current) {
@@ -50,15 +67,15 @@ function SceneRig({ chapterRef, wireframeRef, visibilityRef }) {
       keyLightRef.current.color.setRGB(hue.r, hue.g, hue.b);
     }
     if (fillLightRef.current) {
-      fillLightRef.current.intensity = s.keyIntensity * 0.5;
+      fillLightRef.current.intensity = s.keyIntensity * 0.55;
       fillLightRef.current.color.setRGB(hue.r * 0.85, hue.g * 0.9, hue.b * 1.0);
     }
     if (ambientRef.current) {
       ambientRef.current.intensity = s.ambIntensity;
       ambientRef.current.color.setRGB(
-        hue.r * 0.7 + 0.2,
-        hue.g * 0.7 + 0.2,
-        hue.b * 0.8 + 0.2
+        hue.r * 0.6 + 0.3,
+        hue.g * 0.6 + 0.3,
+        hue.b * 0.7 + 0.25
       );
     }
 
@@ -69,7 +86,7 @@ function SceneRig({ chapterRef, wireframeRef, visibilityRef }) {
     if (!scene.fog) scene.fog = new THREE.Fog(_bgColor.current, 14, 50);
     scene.fog.color.copy(_bgColor.current);
     scene.fog.near = THREE.MathUtils.lerp(40, 6, s.fog);
-    scene.fog.far = THREE.MathUtils.lerp(80, 20, s.fog);
+    scene.fog.far = THREE.MathUtils.lerp(80, 22, s.fog);
   });
 
   return (
@@ -82,36 +99,52 @@ function SceneRig({ chapterRef, wireframeRef, visibilityRef }) {
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
       />
       <directionalLight ref={fillLightRef} position={[-6, 5, -4]} intensity={0.6} />
-      <hemisphereLight args={["#ffd9a8", "#3b2a18", 0.35]} />
+      <hemisphereLight args={["#ffd9a8", "#3b2a18", 0.4]} />
 
       <Suspense fallback={null}>
+        <Globe
+          rotationRef={globeRotRef}
+          visibilityRef={globeVisRef}
+          globeRef={globeRef}
+        />
         <TrACModel
           modelRef={modelRef}
           wireframeRef={wireframeRef}
-          visibilityRef={visibilityRef}
+          visibilityRef={modelVisibilityRef}
         />
       </Suspense>
     </>
   );
 }
 
-export default function JourneyScene({ chapterRef }) {
+export default function JourneyScene({ chapterRef, mouseRef }) {
   const wireframeRef = useRef(0);
-  const visibilityRef = useRef(1);
+  const modelVisibilityRef = useRef(0);
+  const globeRotRef = useRef(0);
+  const globeVisRef = useRef(1);
 
   return (
     <Canvas
       shadows
       dpr={[1, 1.75]}
       gl={{ antialias: true, powerPreference: "high-performance" }}
-      camera={{ fov: 38, near: 0.1, far: 200, position: [6, 4, 12.5] }}
+      camera={{ fov: 38, near: 0.1, far: 200, position: [0, 0, 22] }}
     >
       <SceneRig
         chapterRef={chapterRef}
+        mouseRef={mouseRef}
         wireframeRef={wireframeRef}
-        visibilityRef={visibilityRef}
+        modelVisibilityRef={modelVisibilityRef}
+        globeRotRef={globeRotRef}
+        globeVisRef={globeVisRef}
       />
     </Canvas>
   );

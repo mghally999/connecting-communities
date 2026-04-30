@@ -9,17 +9,14 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 /**
  * TrACModel
  *
- * Loads /models/building.glb (a real ~6m architectural building, meshopt
- * compressed). Builds two parallel material sets per source mesh — a
- * solid PBR set and a bright orange wireframe set — and crossfades them
- * via the shared `wireframeRef` ∈ [0,1].  Also fades model OPACITY via
- * `visibilityRef` ∈ [0,1] so the dark "text-only" chapters can hide the
- * model entirely.
+ * Loads /models/building.glb and applies brand-styled PBR materials
+ * with a separate orange wireframe overlay per mesh. Crossfade between
+ * solid + wireframe via opacity. Wireframe uses polygonOffset and
+ * depthWrite:false to avoid z-fighting and occlusion.
  */
 
 const BUILDING_URL = "/models/building.glb";
 const SCALE = 0.85;
-
 const BRAND_ORANGE = "#FD542B";
 
 function attachMeshopt(loader) {
@@ -37,15 +34,13 @@ export default function TrACModel({ wireframeRef, visibilityRef, modelRef }) {
     solidMats.current = [];
     wireMats.current = [];
 
-    scene.traverse((obj) => {
-      if (!obj.isMesh) return;
+    const meshes = [];
+    scene.traverse((obj) => { if (obj.isMesh) meshes.push(obj); });
+
+    for (const obj of meshes) {
       obj.castShadow = true;
       obj.receiveShadow = true;
-
       const srcName = (obj.material && obj.material.name) || "";
-      const srcColor = obj.material?.color
-        ? obj.material.color.clone()
-        : new THREE.Color("#e8d8be");
 
       let solid;
       if (/glass/i.test(srcName)) {
@@ -54,7 +49,7 @@ export default function TrACModel({ wireframeRef, visibilityRef, modelRef }) {
           roughness: 0.18,
           metalness: 0.55,
           emissive: new THREE.Color("#9CC9DD"),
-          emissiveIntensity: 0.22,
+          emissiveIntensity: 0.18,
         });
       } else if (/wood/i.test(srcName)) {
         solid = new THREE.MeshStandardMaterial({
@@ -64,13 +59,13 @@ export default function TrACModel({ wireframeRef, visibilityRef, modelRef }) {
         });
       } else if (/metal/i.test(srcName)) {
         solid = new THREE.MeshStandardMaterial({
-          color: "#cdd2d6",
+          color: "#cfd4d8",
           roughness: 0.45,
           metalness: 0.7,
         });
       } else {
         solid = new THREE.MeshStandardMaterial({
-          color: srcColor,
+          color: "#dccfb6",
           roughness: 0.7,
           metalness: 0.1,
         });
@@ -84,37 +79,36 @@ export default function TrACModel({ wireframeRef, visibilityRef, modelRef }) {
         wireframe: true,
         transparent: true,
         opacity: 0,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
         toneMapped: false,
       });
 
       obj.material = solid;
       const wireMesh = new THREE.Mesh(obj.geometry, wire);
-      wireMesh.position.copy(obj.position);
-      wireMesh.rotation.copy(obj.rotation);
-      wireMesh.scale.copy(obj.scale);
-      wireMesh.scale.multiplyScalar(1.001);
-      obj.parent.add(wireMesh);
+      wireMesh.name = obj.name + "_wire";
+      obj.add(wireMesh);
 
       solidMats.current.push(solid);
       wireMats.current.push(wire);
-    });
+    }
   }, [scene]);
 
-  /* Per-frame: blend solid↔wire opacity AND apply global visibility fade. */
   useFrame(() => {
     const w = wireframeRef.current ?? 0;
     const v = visibilityRef.current ?? 1;
-    const solidA = (1 - w * 0.85) * v;
-    const wireA = w * v;
+    const solidA = THREE.MathUtils.clamp((1 - w) * v, 0, 1);
+    const wireA = THREE.MathUtils.clamp(w * v, 0, 1);
     for (const m of solidMats.current) m.opacity = solidA;
     for (const m of wireMats.current) m.opacity = wireA;
   });
 
   return (
     <>
-      {/* Subtle ground disc */}
       <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[20, 64]} />
+        <circleGeometry args={[24, 64]} />
         <meshStandardMaterial color="#c9a878" roughness={0.95} />
       </mesh>
 

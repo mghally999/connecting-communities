@@ -2,42 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import styled, { css } from "styled-components";
+import styled, { css, createGlobalStyle } from "styled-components";
 import SafeBoundary from "@/components/SafeBoundary";
-import useChapterScroll from "@/hooks/useChapterScroll";
+import useChapterSnap from "@/hooks/useChapterSnap";
 import { CHAPTERS } from "@/lib/journey-chapters";
 
 /**
  * OurModelJourney
  *
- * Pyramids-of-Meroë style cinematic walkthrough — sticky-pinned scroll
- * proxy with smoothed camera animation.
+ * Pinned cinematic walkthrough — engagement-locked snap navigation.
+ * Globe intro → architectural building walkthrough.
  *
- * KEY DECISIONS (after iteration with the client's screen recording)
- *
- * 1. Sticky pinning instead of position:fixed engagement
- *    The previous "lock body scroll while engaged" approach broke on
- *    fast macOS touchpad scrolls — the user would fly past the engage
- *    point before it fired and end up looking at empty space below.
- *    Sticky just works: the host is `chapterCount × 100vh` tall, the
- *    inner stage is `position: sticky; top: 0; height: 100vh`, and the
- *    chapter is always derived from current scroll position. The user
- *    can never get out of sync.
- *
- *    (Pre-requisite: the GlobalStyle no longer sets `overflow-x: hidden`
- *    on html/body, which would have killed sticky on every descendant.)
- *
- * 2. Captions ALWAYS in side margins (left or right, with optional top
- *    or bottom anchor). NEVER centered on top of the model. The
- *    "title-center" layout from earlier iterations placed text directly
- *    over the building at low opacity — illegible. Now the only
- *    "centered" layouts are `text-only-dark` chapters where the model
- *    is fully hidden anyway.
- *
- * 3. The camera animation is decoupled from scroll position. The
- *    hook ensures every chapter transition takes ~850ms, regardless of
- *    how fast the user scrolled. So even a fling-scroll produces a
- *    cinematic glide, not a teleport.
+ * Behaviour:
+ *   - Section is `position: relative; height: 100vh` in document flow.
+ *   - When the section reaches viewport top, useChapterSnap engages:
+ *     locks page scroll, switches stage to position:fixed.
+ *   - One wheel/touch gesture = one chapter step. ~850ms eased
+ *     transition. Mouse parallax tilts the camera subtly.
+ *   - Boundary release at first/last chapter resumes natural page scroll.
  */
 
 const JourneyScene = dynamic(() => import("./JourneyScene"), {
@@ -45,23 +27,26 @@ const JourneyScene = dynamic(() => import("./JourneyScene"), {
   loading: () => null,
 });
 
-/* -------------------------------------------------------------------------- */
-/* Styled                                                                     */
-/* -------------------------------------------------------------------------- */
+const EngagedGlobals = createGlobalStyle`
+  body { overflow: hidden !important; }
+  header[role="banner"] { opacity: 0 !important; pointer-events: none !important; }
+`;
 
 const Host = styled.section`
   position: relative;
   width: 100%;
-  background: #fff6eb;
-  /* height set inline via hostHeightVh */
+  height: 100vh;
+  background: #04060a;
 `;
 
-const Sticky = styled.div`
-  position: sticky;
-  top: 0;
-  height: 100vh;
+const Stage = styled.div`
+  position: ${({ $engaged }) => ($engaged ? "fixed" : "absolute")};
+  inset: 0;
+  z-index: ${({ $engaged }) => ($engaged ? 999 : 1)};
   width: 100%;
+  height: 100vh;
   overflow: hidden;
+  background: #04060a;
 `;
 
 const CanvasLayer = styled.div`
@@ -75,8 +60,6 @@ const FallbackBg = styled.div`
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* Background updated per-frame from the chapter colour mix. Always
-   * visible behind the canvas so transitions never flash white. */
 `;
 
 const Overlay = styled.div`
@@ -86,23 +69,14 @@ const Overlay = styled.div`
   pointer-events: none;
 `;
 
-/* -------------------------------------------------------------------------- */
-/* Caption variants                                                           */
-/* -------------------------------------------------------------------------- */
-
-/* Each caption variant lives in a margin position. Never centered over
- * the model. The text-only-dark chapters render the model fully invisible
- * so a centered caption there is safe. */
-
 const captionBase = css`
   position: absolute;
   display: flex;
   flex-direction: column;
   pointer-events: none;
-  will-change: opacity, transform;
-  transition: opacity 520ms cubic-bezier(.22,1,.36,1);
+  will-change: opacity;
+  transition: opacity 540ms cubic-bezier(.22,1,.36,1);
   max-width: min(440px, 42vw);
-  /* Reserve room for the fixed Header (92px) at the top of the page. */
   @media (max-width: 900px) { max-width: 88vw; }
 `;
 
@@ -132,12 +106,6 @@ const BottomRight = styled.div`
   right: clamp(1.5rem, 5vw, 4.5rem);
   text-align: left;
 `;
-const TopLeft = styled.div`
-  ${captionBase};
-  top: clamp(7rem, 14vh, 10rem);  /* 92px header + breathing room */
-  left: clamp(1.5rem, 5vw, 4.5rem);
-  text-align: left;
-`;
 const CenterDark = styled.div`
   ${captionBase};
   top: 50%;
@@ -147,10 +115,6 @@ const CenterDark = styled.div`
   align-items: center;
   max-width: min(720px, 80vw);
 `;
-
-/* -------------------------------------------------------------------------- */
-/* Caption typography                                                         */
-/* -------------------------------------------------------------------------- */
 
 const Eyebrow = styled.div`
   font-size: 0.72rem;
@@ -197,10 +161,6 @@ const Body = styled.p`
       : "0 1px 12px rgba(255,255,255,0.7), 0 0 3px rgba(255,255,255,0.4)"};
   font-weight: 500;
 `;
-
-/* -------------------------------------------------------------------------- */
-/* Right rail                                                                 */
-/* -------------------------------------------------------------------------- */
 
 const Rail = styled.div`
   position: absolute;
@@ -265,10 +225,6 @@ const Dot = styled.button`
   }
 `;
 
-/* -------------------------------------------------------------------------- */
-/* Scroll hint                                                                */
-/* -------------------------------------------------------------------------- */
-
 const ScrollHint = styled.div`
   position: absolute;
   left: 50%;
@@ -306,10 +262,6 @@ const ScrollHint = styled.div`
   }
 `;
 
-/* -------------------------------------------------------------------------- */
-/* WebGL detect                                                                */
-/* -------------------------------------------------------------------------- */
-
 function detectWebGL() {
   if (typeof window === "undefined") return false;
   try {
@@ -321,13 +273,16 @@ function detectWebGL() {
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* CaptionFor                                                                 */
-/* -------------------------------------------------------------------------- */
-
 function CaptionFor({ chapter, dark, active }) {
-  const inner = (
-    <>
+  const Component =
+    chapter.layout === "side-right"     ? SideRight :
+    chapter.layout === "bottom-left"    ? BottomLeft :
+    chapter.layout === "bottom-right"   ? BottomRight :
+    chapter.layout === "text-only-dark" ? CenterDark :
+    SideLeft;
+
+  return (
+    <Component style={{ opacity: active ? 1 : 0 }} aria-hidden={!active}>
       <Eyebrow>
         <span className="num">{chapter.eyebrow}</span>
         <span className="bar" />
@@ -335,36 +290,25 @@ function CaptionFor({ chapter, dark, active }) {
       </Eyebrow>
       <Title $dark={dark}>{chapter.title}</Title>
       <Body $dark={dark}>{chapter.body}</Body>
-    </>
-  );
-
-  const Component =
-    chapter.layout === "side-right"     ? SideRight :
-    chapter.layout === "bottom-left"    ? BottomLeft :
-    chapter.layout === "bottom-right"   ? BottomRight :
-    chapter.layout === "top-left"       ? TopLeft :
-    chapter.layout === "text-only-dark" ? CenterDark :
-    chapter.layout === "wireframe"      ? SideLeft :
-    chapter.layout === "side-left"      ? SideLeft :
-    SideLeft;
-
-  return (
-    <Component style={{ opacity: active ? 1 : 0 }} aria-hidden={!active}>
-      {inner}
     </Component>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Main                                                                       */
-/* -------------------------------------------------------------------------- */
-
 export default function OurModelJourney() {
-  const { sectionRef, chapterRef, chapterIndex, jumpTo, hostHeightVh } =
-    useChapterScroll({
-      chapterCount: CHAPTERS.length,
-      transitionMs: 850,
-    });
+  const {
+    sectionRef,
+    chapterRef,
+    chapterIndex,
+    mouseRef,
+    jumpTo,
+    engaged,
+  } = useChapterSnap({
+    chapterCount: CHAPTERS.length,
+    transitionMs: 850,
+    pauseAfterMs: 120,
+    wheelThresholdPx: 18,
+    reengageCooldownMs: 600,
+  });
 
   const fallbackRef = useRef(null);
   const [shouldMount, setShouldMount] = useState(false);
@@ -372,8 +316,6 @@ export default function OurModelJourney() {
 
   useEffect(() => { setWebglOk(detectWebGL()); }, []);
 
-  /* Mount the canvas slightly before the user reaches the section so
-   * the GLB has time to load. */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const el = sectionRef.current;
@@ -387,8 +329,6 @@ export default function OurModelJourney() {
     return () => window.removeEventListener("scroll", check);
   }, [sectionRef]);
 
-  /* Live-update the fallback CSS background to track the current
-   * chapter colour so transitions never show a white flash. */
   useEffect(() => {
     let raf = 0;
     const tick = () => {
@@ -414,21 +354,18 @@ export default function OurModelJourney() {
   }, [chapterRef]);
 
   const current = CHAPTERS[chapterIndex];
-  const dark = current.bg === "#0a0d12" || current.bg === "#0a0a0a";
+  const dark = current.bg === "#0a0d12" || current.bg === "#04060a" || current.bg === "#080d18";
 
   return (
-    <Host
-      ref={sectionRef}
-      style={{ height: `${hostHeightVh}vh` }}
-      aria-label="Hubsite walkthrough"
-    >
-      <Sticky>
+    <Host ref={sectionRef} aria-label="Hubsite walkthrough">
+      {engaged && <EngagedGlobals />}
+      <Stage $engaged={engaged}>
         <FallbackBg ref={fallbackRef} />
 
         {shouldMount && webglOk && (
           <CanvasLayer>
             <SafeBoundary fallback={null}>
-              <JourneyScene chapterRef={chapterRef} />
+              <JourneyScene chapterRef={chapterRef} mouseRef={mouseRef} />
             </SafeBoundary>
           </CanvasLayer>
         )}
@@ -460,12 +397,12 @@ export default function OurModelJourney() {
             ))}
           </Rail>
 
-          <ScrollHint $show={chapterIndex === 0} $dark={dark}>
+          <ScrollHint $show={engaged && chapterIndex === 0} $dark={dark}>
             Scroll to step
             <span className="arrow" />
           </ScrollHint>
         </Overlay>
-      </Sticky>
+      </Stage>
     </Host>
   );
 }

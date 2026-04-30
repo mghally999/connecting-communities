@@ -19,7 +19,7 @@ export const GlobalStyle = createGlobalStyle`
      * descendant — including the Our Model walkthrough's pinned stage.
      * We rely on individual sections / containers to keep their content
      * within the viewport instead. */
-    // scroll-behavior: smooth;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -57,8 +57,7 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: ${({ theme }) =>
-    theme.colors.cream}; }
+  ::-webkit-scrollbar-track { background: ${({ theme }) => theme.colors.cream}; }
   ::-webkit-scrollbar-thumb {
     background: ${({ theme }) => theme.colors.navy};
     border-radius: 999px;
