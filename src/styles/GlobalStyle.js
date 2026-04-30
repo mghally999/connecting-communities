@@ -14,8 +14,12 @@ export const GlobalStyle = createGlobalStyle`
     font-family: ${({ theme }) => theme.fonts.body};
     color: ${({ theme }) => theme.colors.navy};
     background: ${({ theme }) => theme.colors.cream};
-    overflow-x: hidden;
-    scroll-behavior: smooth;
+    /* IMPORTANT: overflow-x: hidden on html/body would compute overflow-y
+     * to 'auto' per the CSS spec, which breaks position: sticky on every
+     * descendant — including the Our Model walkthrough's pinned stage.
+     * We rely on individual sections / containers to keep their content
+     * within the viewport instead. */
+    // scroll-behavior: smooth;
   }
 
   body {
@@ -53,7 +57,8 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: ${({ theme }) => theme.colors.cream}; }
+  ::-webkit-scrollbar-track { background: ${({ theme }) =>
+    theme.colors.cream}; }
   ::-webkit-scrollbar-thumb {
     background: ${({ theme }) => theme.colors.navy};
     border-radius: 999px;

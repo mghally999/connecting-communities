@@ -1,331 +1,280 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 
 /**
- * FloatingCards
+ * FloatingCards — DRAGGABLE foam-style gallery
  *
- * A grid of cards that:
- *  - Animate in with a spring stagger
- *  - Idle-float continuously (gentle bob + sway) for a "living" feel
- *  - Respond to mouse movement with subtle parallax
- *  - Share a layoutId with the detail view so opening a card animates
- *    smoothly into a portfolio-style fullscreen view (and back)
- *  - Fully respect prefers-reduced-motion
+ * Per client brief: "Note that it's 3D-like — I can move my mouse and
+ * drag and move them along the X axis and Y axis like the seven-seven
+ * marine experience."
+ *
+ * Implementation: each card has a starting (x%, y%) position and a
+ * `dragOffset` (in px) that the user can drive by clicking + dragging.
+ * The dragOffset is applied via CSS transform translate, so dragging
+ * updates the visual position but doesn't trigger React re-renders or
+ * relayout — it stays buttery smooth.
+ *
+ * Click-without-drag opens the story modal (handled by parent via
+ * onSelect). We distinguish "drag" from "click" using a movement
+ * threshold: if the pointer moved < 6 px between down and up, it counts
+ * as a click.
  */
 
-const Board = styled.div`
+const STAGE_HEIGHT_VH = 150; // bigger gallery
+
+const Stage = styled.div`
   position: relative;
   width: 100%;
-  min-height: clamp(700px, 110vh, 1000px);
-  height: clamp(700px, 110vh, 1000px);
+  height: ${STAGE_HEIGHT_VH}vh;
+  min-height: 1100px;
   background: ${({ theme }) => theme.colors.cream};
   overflow: hidden;
+  cursor: grab;
+  &:active { cursor: grabbing; }
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+
+  @media (max-width: 768px) {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    cursor: default;
+    & .stage-inner {
+      position: static;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+      padding: 1rem 1rem 4rem;
+    }
+  }
 `;
 
-const Inner = styled.div`
+const StageInner = styled.div`
   position: relative;
-  max-width: ${({ theme }) => theme.layout.maxWidth};
+  width: 100%;
+  max-width: 1500px;
   margin: 0 auto;
   height: 100%;
-  padding: 3rem 2rem 5rem;
-  @media (max-width: 768px) { padding: 2rem 1rem 3rem; }
 `;
 
-const sizeMap = {
-  sm: { w: 0.13, h: 0.18 },
-  md: { w: 0.17, h: 0.21 },
-  lg: { w: 0.22, h: 0.25 },
-};
-
-const CardShell = styled(motion.button)`
+const HintBadge = styled.div`
   position: absolute;
-  top: ${({ $top }) => $top};
-  left: ${({ $left }) => $left};
-  width: ${({ $width }) => $width};
-  height: ${({ $height }) => $height};
-  background: white;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  box-shadow: 0 14px 30px rgba(11, 16, 24, 0.18);
-  overflow: hidden;
-  transform-origin: center;
-  will-change: transform, box-shadow;
-
-  &:focus-visible {
-    outline: 2px solid ${({ theme }) => theme.colors.orange};
-    outline-offset: 4px;
-  }
-`;
-
-const CardMedia = styled(motion.div)`
-  position: absolute;
-  inset: 0;
-  & img { object-fit: cover; }
-`;
-
-const Detail = styled(motion.div)`
-  position: fixed;
-  inset: 0;
-  z-index: 250;
-  background: rgba(11, 16, 24, 0.85);
-  backdrop-filter: blur(10px);
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-`;
-
-const DetailCard = styled(motion.div)`
-  background: white;
+  top: 1.5rem;
+  left: 1.5rem;
+  z-index: 50;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
   color: ${({ theme }) => theme.colors.navy};
-  border-radius: 8px;
-  max-width: 720px;
-  width: 100%;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: 1fr;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-
-  @media (min-width: 700px) {
-    grid-template-columns: 1fr 1fr;
-  }
-`;
-
-const DetailImage = styled(motion.div)`
-  position: relative;
-  aspect-ratio: 4 / 5;
-  background: ${({ theme }) => theme.colors.skyBlueLight};
-  & img { object-fit: cover; }
-
-  @media (min-width: 700px) {
-    aspect-ratio: auto;
-    min-height: 380px;
-  }
-`;
-
-const DetailBody = styled(motion.div)`
-  padding: 2rem;
+  opacity: 0.5;
+  pointer-events: none;
   display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-
-  & h3 {
-    font-family: ${({ theme }) => theme.fonts.heading};
-    font-size: 1.5rem;
-    margin: 0;
+  align-items: center;
+  gap: 0.5rem;
+  & .icon {
+    display: inline-block;
+    width: 18px; height: 12px;
+    border: 1.5px solid currentColor;
+    border-radius: 3px;
+    position: relative;
   }
-
-  & .cat {
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    font-size: 0.75rem;
-    color: ${({ theme }) => theme.colors.orange};
-    font-weight: ${({ theme }) => theme.fontWeights.semibold};
+  & .icon::after {
+    content: ""; position: absolute;
+    width: 4px; height: 4px;
+    background: currentColor;
+    border-radius: 50%;
+    left: 6px; top: 3px;
   }
+  @media (max-width: 768px) { display: none; }
+`;
 
-  & p {
-    margin: 0;
-    line-height: 1.55;
-    color: ${({ theme }) => theme.colors.grey};
+const Card = styled.div`
+  position: absolute;
+  left: ${({ $x }) => $x}%;
+  top: ${({ $y }) => $y}%;
+  width: ${({ $w }) => $w}%;
+  height: ${({ $h }) => $h}%;
+  transform: translate3d(${({ $tx }) => $tx}px, ${({ $ty }) => $ty}px, 0)
+             rotate(${({ $rot }) => $rot}deg);
+  transform-origin: center center;
+  overflow: hidden;
+  background: ${({ theme }) => theme.colors.skyBlueLight};
+  box-shadow: ${({ $dragging }) =>
+    $dragging
+      ? "0 30px 60px rgba(11, 16, 24, 0.28)"
+      : "0 12px 32px rgba(11, 16, 24, 0.10)"};
+  transition:
+    box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: ${({ $dim }) => ($dim ? 0.32 : 1)};
+  filter: ${({ $dim }) => ($dim ? "saturate(0.55)" : "none")};
+  z-index: ${({ $dragging }) => ($dragging ? 100 : 1)};
+  cursor: grab;
+  &:active { cursor: grabbing; }
+
+  @media (max-width: 768px) {
+    position: static;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    transform: none;
   }
 `;
 
-const Close = styled.button`
-  align-self: flex-end;
-  background: transparent;
-  border: 0;
-  color: ${({ theme }) => theme.colors.navy};
-  font-size: 1.5rem;
-  cursor: pointer;
-  margin-top: auto;
+const Caption = styled.div`
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 0.7rem 0.9rem;
+  background: linear-gradient(0deg, rgba(11,16,24,0.78) 0%, rgba(11,16,24,0) 100%);
+  color: white;
+  pointer-events: none;
+`;
+const Eyebrow = styled.div`
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.orange};
+  margin-bottom: 0.15rem;
+`;
+const Title = styled.div`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: clamp(0.85rem, 1vw, 1rem);
+  font-weight: ${({ theme }) => theme.fontWeights.semibold};
+  letter-spacing: -0.005em;
+  line-height: 1.2;
 `;
 
-const positionFor = (card, idx) => {
-  const size = sizeMap[card.size] || sizeMap.md;
-  const col = Math.max(1, Math.min(12, card.col || ((idx % 6) + 1)));
-  const row = Math.max(1, Math.min(6, card.row || (Math.floor(idx / 6) + 1)));
-  const left = ((col - 1) / 12) * 100;
-  const top = ((row - 1) / 6) * 100;
-  return {
-    top: `${top}%`,
-    left: `${left}%`,
-    width: `${size.w * 100}%`,
-    height: `${size.h * 100}%`,
-    rotate: card.rotate ?? 0,
+/* -------------------------------------------------------------------------- */
+
+function DraggableCard({ card, dim, onSelect }) {
+  const ref = useRef(null);
+  // Drag offsets are kept in REFS so the card can move at 60fps without
+  // re-rendering React on every pointer move. We only setState when the
+  // drag ends so styled-components can read the final value.
+  const offsetRef = useRef({ x: 0, y: 0 });
+  const startRef = useRef(null);
+  const movedRef = useRef(0);
+  const [, force] = useState(0);
+  const [dragging, setDragging] = useState(false);
+
+  /* Apply transform directly to DOM — fast, no React thrash. */
+  const apply = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = `translate3d(${offsetRef.current.x}px, ${offsetRef.current.y}px, 0) rotate(${card.rotate || 0}deg)`;
   };
-};
 
-/**
- * Single card. Pulled into its own component so each card can own its
- * idle-float animation and mouse-parallax tilt independently.
- */
-function FloatingCard({ card, index, position, mouse, onOpen, reduceMotion }) {
-  // Each card gets a slightly different idle motion so they don't all bob in sync
-  const seed = index * 7;
-  const driftX = (seed % 5) - 2;          // -2..2 px
-  const driftY = ((seed * 3) % 7) - 3;    // -3..3 px
-  const driftRot = ((seed * 11) % 5) - 2; // -2..2 deg around base rotation
-  const duration = 4 + ((index * 13) % 5); // 4..8s
+  useEffect(() => {
+    apply(); // initial application
+  }, []);
 
-  // Mouse parallax — different multiplier per card so they don't all move identically
-  const parallaxStrength = 0.6 + ((index % 3) * 0.4); // 0.6..1.4
-  const parallaxX = reduceMotion ? 0 : mouse.x * parallaxStrength * 14;
-  const parallaxY = reduceMotion ? 0 : mouse.y * parallaxStrength * 14;
+  const onPointerDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      ox: offsetRef.current.x,
+      oy: offsetRef.current.y,
+    };
+    movedRef.current = 0;
+    setDragging(true);
 
-  const idle = reduceMotion
-    ? {}
-    : {
-        x: [parallaxX - driftX, parallaxX + driftX, parallaxX - driftX],
-        y: [parallaxY - driftY, parallaxY + driftY, parallaxY - driftY],
-        rotate: [
-          position.rotate + driftRot,
-          position.rotate - driftRot,
-          position.rotate + driftRot,
-        ],
-      };
+    const onMove = (ev) => {
+      if (!startRef.current) return;
+      const dx = ev.clientX - startRef.current.x;
+      const dy = ev.clientY - startRef.current.y;
+      movedRef.current = Math.max(movedRef.current, Math.hypot(dx, dy));
+      offsetRef.current.x = startRef.current.ox + dx;
+      offsetRef.current.y = startRef.current.oy + dy;
+      apply();
+    };
+    const onUp = (ev) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      setDragging(false);
+      // Click-vs-drag distinction: short movement = click → open story.
+      if (movedRef.current < 6) {
+        onSelect?.(card);
+      }
+      startRef.current = null;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp, { passive: true });
+    window.addEventListener("pointercancel", onUp, { passive: true });
+  };
 
   return (
-    <CardShell
-      layoutId={`card-${card.title || index}`}
-      $top={position.top}
-      $left={position.left}
-      $width={position.width}
-      $height={position.height}
-      initial={{ opacity: 0, scale: 0.6, rotate: position.rotate }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        rotate: position.rotate,
-        ...idle,
+    <Card
+      ref={ref}
+      $x={card.x ?? 0}
+      $y={card.y ?? 0}
+      $w={card.w ?? 18}
+      $h={card.h ?? 24}
+      $rot={card.rotate ?? 0}
+      $tx={offsetRef.current.x}
+      $ty={offsetRef.current.y}
+      $dragging={dragging}
+      $dim={dim}
+      onPointerDown={onPointerDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open story: ${card.title}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect?.(card);
+        }
       }}
-      transition={{
-        opacity: { delay: index * 0.04, duration: 0.6 },
-        scale: { delay: index * 0.04, type: "spring", stiffness: 90, damping: 14 },
-        rotate: reduceMotion
-          ? { delay: index * 0.04, duration: 0.5 }
-          : { duration, repeat: Infinity, ease: "easeInOut" },
-        x: reduceMotion
-          ? { duration: 0.4 }
-          : { duration, repeat: Infinity, ease: "easeInOut" },
-        y: reduceMotion
-          ? { duration: 0.4 }
-          : { duration, repeat: Infinity, ease: "easeInOut" },
-      }}
-      exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.35 } }}
-      whileHover={{
-        scale: 1.08,
-        rotate: 0,
-        zIndex: 5,
-        boxShadow: "0 20px 40px rgba(11,16,24,0.28)",
-        transition: { duration: 0.25, ease: "easeOut" },
-      }}
-      whileTap={{ scale: 0.97 }}
-      onClick={() => onOpen(card)}
-      aria-label={card.title}
     >
-      <CardMedia layoutId={`card-media-${card.title || index}`}>
-        <Image
-          src={card.image}
-          alt={card.title}
-          fill
-          sizes="20vw"
-          style={{ objectFit: "cover" }}
-        />
-      </CardMedia>
-    </CardShell>
+      <Image
+        src={card.image}
+        alt={card.title}
+        fill
+        sizes="(max-width: 768px) 50vw, 22vw"
+        style={{ objectFit: "cover", pointerEvents: "none" }}
+        draggable={false}
+      />
+      <Caption>
+        <Eyebrow>{card.eyebrow || card.category}</Eyebrow>
+        <Title>{card.title}</Title>
+      </Caption>
+    </Card>
   );
 }
 
-export default function FloatingCards({ cards, activeCategory }) {
-  const [open, setOpen] = useState(null);
-  const [mouse, setMouse] = useState({ x: 0, y: 0 });
-  const boardRef = useRef(null);
-  const reduceMotion = useReducedMotion();
+/* -------------------------------------------------------------------------- */
 
-  const visibleCards = useMemo(() => {
-    if (!cards) return [];
-    if (activeCategory === "all") return cards;
-    return cards.filter((c) => c.category === activeCategory);
-  }, [cards, activeCategory]);
-
-  const handleMouseMove = (e) => {
-    if (reduceMotion || !boardRef.current) return;
-    const rect = boardRef.current.getBoundingClientRect();
-    // Normalised -1..1 from board centre
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
-    setMouse({ x, y });
-  };
-
-  const handleMouseLeave = () => setMouse({ x: 0, y: 0 });
-
+export default function FloatingCards({ cards, activeCategory, onSelect }) {
+  const items = useMemo(() => cards || [], [cards]);
   return (
-    <>
-      <Board ref={boardRef} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
-        <Inner>
-          <AnimatePresence mode="popLayout">
-            {visibleCards.map((card, i) => {
-              const pos = positionFor(card, i);
-              return (
-                <FloatingCard
-                  key={(card.title || "card") + i}
-                  card={card}
-                  index={i}
-                  position={pos}
-                  mouse={mouse}
-                  onOpen={setOpen}
-                  reduceMotion={reduceMotion}
-                />
-              );
-            })}
-          </AnimatePresence>
-        </Inner>
-      </Board>
-
-      <AnimatePresence>
-        {open && (
-          <Detail
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            onClick={() => setOpen(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-label={open.title}
-          >
-            <DetailCard
-              layoutId={`card-${open.title}`}
-              transition={{ type: "spring", stiffness: 120, damping: 22 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <DetailImage layoutId={`card-media-${open.title}`}>
-                <Image
-                  src={open.image}
-                  alt={open.title}
-                  fill
-                  sizes="(max-width: 700px) 100vw, 360px"
-                  style={{ objectFit: "cover" }}
-                />
-              </DetailImage>
-              <DetailBody
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0, transition: { delay: 0.15, duration: 0.35 } }}
-                exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
-              >
-                <span className="cat">{open.category}</span>
-                <h3>{open.title}</h3>
-                <p>{open.story || "More on this story coming soon."}</p>
-                <Close type="button" onClick={() => setOpen(null)} aria-label="Close">×</Close>
-              </DetailBody>
-            </DetailCard>
-          </Detail>
-        )}
-      </AnimatePresence>
-    </>
+    <Stage>
+      <HintBadge>
+        <span className="icon" /> drag the cards
+      </HintBadge>
+      <StageInner className="stage-inner">
+        {items.map((c) => {
+          const dim = activeCategory && activeCategory !== "all"
+            ? c.category !== activeCategory
+            : false;
+          return (
+            <DraggableCard
+              key={c.id || c.title}
+              card={c}
+              dim={dim}
+              onSelect={onSelect}
+            />
+          );
+        })}
+      </StageInner>
+    </Stage>
   );
 }

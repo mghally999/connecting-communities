@@ -31,32 +31,64 @@ const Cards = styled.div`
 const Card = styled.article`
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 1rem;
   text-align: center;
 `;
 
+const TagRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  /* Push the bottom edge so the pin can sit half on the image without
+     adding gap to the layout — the pin is positioned in ImgWrap. */
+  margin-bottom: 0;
+`;
+
 const Tag = styled.span`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.95rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.92rem;
   font-weight: ${({ theme }) => theme.fontWeights.semibold};
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   color: ${({ theme }) => theme.colors.navy};
 `;
 
-const Notch = styled.span`
-  width: 16px;
-  height: 16px;
-  background: ${({ theme }) => theme.colors.orange};
-  display: block;
-`;
-
+/**
+ * The image wrapper is `position: relative`, and the pin is a tiny square
+ * positioned at top: 0 with a -50% translate in Y. That places the dot
+ * straddling the top edge — half on the background, half on the image.
+ */
 const ImgWrap = styled.div`
   width: 100%;
   aspect-ratio: 1.05 / 1;
   position: relative;
-  overflow: hidden;
-  background: ${({ theme }) => theme.colors.skyBlueLight};
+  overflow: visible; /* keep visible so the pin's overhang renders cleanly */
+  background: transparent;
+
+  /* Inner mask clips just the image so the pin is on top of the image
+     but not clipped by it. */
+  & .img-clip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: ${({ theme }) => theme.colors.skyBlueLight};
+  }
+`;
+
+const Pin = styled.span`
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  background: ${({ theme }) => theme.colors.orange};
+  /* Pull the pin up by half its height so it straddles the image edge */
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  /* Tiny shadow gives the pin lift, like an actual pushpin */
+  box-shadow: 0 2px 6px rgba(253, 84, 43, 0.35);
 `;
 
 const Caption = styled(Body)`
@@ -64,7 +96,7 @@ const Caption = styled(Body)`
   color: ${({ theme }) => theme.colors.navy};
   max-width: 30ch;
   margin: 0 auto;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
 `;
 
 const StripTitle = styled(H2)`
@@ -86,10 +118,18 @@ export default function OurApproach({ data }) {
             {data.approachItems?.map((item, i) => (
               <Reveal key={item.label} delay={i * 100}>
                 <Card>
-                  <Tag>{item.label}</Tag>
-                  <Notch aria-hidden="true" />
+                  <TagRow>
+                    <Tag>{item.label}</Tag>
+                  </TagRow>
                   <ImgWrap>
-                    <SmartImage src={item.image} alt={item.label} fallbackLabel={item.label} />
+                    <Pin aria-hidden="true" />
+                    <div className="img-clip">
+                      <SmartImage
+                        src={item.image}
+                        alt={item.label}
+                        fallbackLabel={item.label}
+                      />
+                    </div>
                   </ImgWrap>
                   <Caption>{item.caption}</Caption>
                 </Card>

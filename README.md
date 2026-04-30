@@ -1,8 +1,33 @@
-# Connecting Communities — v3
+# Connecting Communities — v3.1
 
 Production-ready marketing site built with Next.js 16 (App Router), React 19,
-styled-components 6, and framer-motion. **No Sanity. No 3D.** All content lives
-in `src/lib/site-content.js` and all imagery ships in `public/images/`.
+styled-components 6, framer-motion, and **three.js / @react-three/fiber** for
+the scroll-driven WebGL TrAC walkthrough on `/our-model`. All copy lives in
+`src/lib/site-content.js` and all imagery ships in `public/images/`.
+
+## The /our-model WebGL journey
+
+The "Inside a TrAC" section is a scroll-driven WebGL camera tour, built from a
+**single deterministic scroll-progress value (0..1)**. Scroll to 45% → the
+scene renders the same camera angle, model rotation, lighting, text state,
+and background every time. There are no independent timers or random
+animations.
+
+All keyframes are declared in `src/lib/journey-keyframes.js` (camera position,
+camera target, model rotation/scale, light intensity/hue, fog, background,
+section opacities). Editing a keyframe and reloading is enough to retune the
+journey — no other file needs to change.
+
+The procedural TrAC building lives in
+`src/components/our-model/TrACModel.js`. The scene rig (camera, lights, fog,
+background) lives in `src/components/our-model/JourneyScene.js`. The HTML
+overlay layer (captions, hotspots, right-side dot rail, scroll nudge) and
+the master sticky stage live in
+`src/components/our-model/OurModelJourney.js`.
+
+The WebGL scene is loaded via `next/dynamic({ ssr: false })` so it doesn't run
+during SSR and the three.js bundle is code-split into its own ~820 KB chunk
+that only downloads when you reach the page.
 
 ## Run it
 
@@ -44,8 +69,12 @@ The CC logo is an inline SVG in `src/components/Logo.js`.
 - The Ecosystem floating cards layout works but the placement values are
   hand-tuned approximations. The exact pixel-perfect Figma positions can be
   pulled in once the final 3D / scroll experience design is locked.
-- Per the brief, the Our Model 3D experience is deferred until the GLB model
-  arrives. The current layout is the figma 2D version.
+- The TrAC model is procedural (composed from primitives) so it ships at
+  near-zero asset cost and the wireframe-blend works cleanly. When AKA
+  Partners deliver a real `.glb`, drop it into `public/models/` and load it
+  via `useLoader(GLTFLoader, ...)` inside `TrACModel.js` — keep the same
+  `wireframeRef` opacity blend on its materials and the rest of the journey
+  works unchanged.
 
 ## Notes
 

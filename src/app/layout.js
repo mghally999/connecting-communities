@@ -1,9 +1,56 @@
+import localFont from "next/font/local";
 import StyledComponentsRegistry from "@/styles/StyledComponentsRegistry";
 import ThemeProvider from "@/styles/ThemeProvider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 import { siteSettings } from "@/lib/site-content";
+
+/**
+ * Stolzl is the brand typeface (per client). We ship the two weights they
+ * licensed locally — Book (used for body) and Regular (used for headings
+ * and buttons). next/font/local generates an optimized self-hosted CSS
+ * @font-face plus a CSS variable we expose globally.
+ */
+const stolzl = localFont({
+  src: [
+    {
+      path: "../../public/fonts/Stolzl-Book.otf",
+      weight: "300",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/Stolzl-Book.otf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/Stolzl-Regular.otf",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/Stolzl-Regular.otf",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/Stolzl-Regular.otf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  display: "swap",
+  variable: "--font-stolzl",
+  preload: true,
+  fallback: [
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "Helvetica Neue",
+    "Arial",
+    "sans-serif",
+  ],
+});
 
 export const metadata = {
   metadataBase: new URL(
@@ -30,24 +77,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <head>
-        {/* Manrope is loaded from Google Fonts via CSS — no build-time fetch. */}
-        <link
-          rel="preconnect"
-          href="https://fonts.googleapis.com"
-        />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin=""
-        />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap"
-        />
-      </head>
-      <body style={{ margin: 0, fontFamily: "Manrope, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" }}>
+    <html lang="en" className={stolzl.variable}>
+      <body
+        style={{
+          margin: 0,
+          fontFamily:
+            "var(--font-stolzl), -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif",
+        }}
+      >
         <StyledComponentsRegistry>
           <ThemeProvider>
             <Header navLinks={siteSettings.navLinks} />

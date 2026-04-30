@@ -9,12 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@react-three/fiber": "^9.6.1",
     "framer-motion": "^12.23.26",
     "next": "^16.1.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "sharp": "^0.34.5",
-    "styled-components": "^6.3.11"
+    "styled-components": "^6.3.11",
+    "three": "^0.169.0"
   },
   "devDependencies": {
     "babel-plugin-styled-components": "^2.1.4"

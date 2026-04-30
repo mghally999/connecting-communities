@@ -26,8 +26,8 @@ export const theme = {
     black:         "#0B1018",
   },
   fonts: {
-    body:    "Manrope, -apple-system, BlinkMacSystemFont, sans-serif",
-    heading: "Manrope, -apple-system, BlinkMacSystemFont, sans-serif",
+    body:    "var(--font-stolzl), -apple-system, BlinkMacSystemFont, sans-serif",
+    heading: "var(--font-stolzl), -apple-system, BlinkMacSystemFont, sans-serif",
   },
   fontSizes: {
     xs: "0.75rem",

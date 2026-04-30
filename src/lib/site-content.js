@@ -13,7 +13,6 @@ export const siteSettings = {
     { label: "About", href: "/about" },
     { label: "Our Model", href: "/our-model" },
     { label: "Ecosystem in Action", href: "/ecosystem" },
-    { label: "Partners", href: "/partners" },
     { label: "Contact", href: "/contact" },
   ],
   footerColumns: [
@@ -31,7 +30,6 @@ export const siteSettings = {
     },
     {
       links: [
-        { label: "PARTNERS", href: "/partners" },
         { label: "CONTACT", href: "/contact" },
       ],
     },
@@ -130,7 +128,8 @@ export const aboutContent = {
 
   launchTitle: "Our launch",
   launchBody:
-    "Our launch will roll out across East Africa, beginning with Rwanda as our regional headquarters, with X community smart hubs and X digital centers by the end of 2026.",
+    "Our launch will roll out across East Africa, beginning with Rwanda as our regional headquarters. From there we will expand into the Democratic Republic of Congo, Tanzania, Uganda, and Kenya — building a connected East African network of community smart hubs.",
+  launchImage: "/images/our-model/05-village-aerial-landscape.jpg",
 
   partnersTitle: "Partners & collaboration",
   partnersBody:
@@ -140,14 +139,52 @@ export const aboutContent = {
     {
       label: "Connectivity",
       image: "/images/about/08-sector-connectivity.jpg",
+      back:
+        "Reliable mobile and fixed-line networks form the digital backbone of every community we serve.",
+      ctaLabel: "Learn more",
+      ctaHref: "https://trac.africa/",
     },
-    { label: "FinTech", image: "/images/home/06-partner-fintech-arch.jpg" },
-    { label: "EdTech", image: "/images/home/05-partner-edtech-tree.jpg" },
-    { label: "WashTech", image: "/images/about/09-sector-washtech.jpg" },
-    { label: "AgriTech", image: "/images/about/11-sector-agritech.jpg" },
+    {
+      label: "FinTech",
+      image: "/images/home/06-partner-fintech-arch.jpg",
+      back:
+        "Aspire microfinance puts savings, loans, and digital payments within reach of every family in the network.",
+      ctaLabel: "Learn more",
+      ctaHref: "https://aspire-finance.co/",
+    },
+    {
+      label: "EdTech",
+      image: "/images/home/05-partner-edtech-tree.jpg",
+      back:
+        "Locally hosted classrooms deliver literacy, vocational, and digital-skills programmes for all ages.",
+      ctaLabel: "Learn more",
+      ctaHref: "https://aka-partners.com/our-sectors/#edtech",
+    },
+    {
+      label: "WashTech",
+      image: "/images/about/09-sector-washtech.jpg",
+      back:
+        "Clean-water infrastructure and pay-as-you-use sanitation tools, integrated with the local hub.",
+      ctaLabel: "Learn more",
+      ctaHref: "https://aquasol-tech.com/",
+    },
+    {
+      label: "AgriTech",
+      image: "/images/about/11-sector-agritech.jpg",
+      back:
+        "AgroEdu counters give smallholder farmers crop guidance, market prices, and direct buyer connections.",
+      ctaLabel: "Learn more",
+      ctaHref: "https://aka-partners.com/our-sectors/#agritech",
+    },
     {
       label: "Tele-conferencing",
       image: "/images/about/10-sector-teleconferencing.jpg",
+      back:
+        "Private rooms equipped to connect community members with doctors, instructors, and family abroad.",
+      // No external site for tele-conferencing yet — back side shows the
+      // description without a CTA button.
+      ctaLabel: null,
+      ctaHref: null,
     },
   ],
 
@@ -155,20 +192,20 @@ export const aboutContent = {
   akaBody:
     'AKA is the strategic architect behind the Connecting Communities (CC) ecosystem. Founded by experts in emerging markets, we build ventures that combine innovative technology with grounded business models to drive sustainable social and economic growth.\n\nAs the visionary force behind CC, AKA coordinates a "last-mile" ecosystem of essential services - including finance, agriculture, and tele-conferencing. By scaling critical enablers like TrAC, we ensure that reliable connectivity serves as the digital backbone for this entire network. At AKA, we design the infrastructure of opportunity, empowering communities to reach their full potential.',
   akaCtaLabel: "LEARN MORE",
-  akaCtaHref: "https://akapartners.com",
-  akaLogo: "/images/about/03-aka-partners-logo.png",
+  akaCtaHref: "https://aka-partners.com/",
+  akaLogo: "/logo/aka-logo.svg",
 
   leadersTitle: "Our leaders",
   leaders: [
     {
       name: "KARIM KHOJA",
       role: "Founding Partner and\nChairman, AKA Partners",
-      image: "/images/about/05-leader-2.jpg",
+      image: "/images/about/leader-karim.jpg",
     },
     {
       name: "ALTAF LADAK",
       role: "Founding Partner,\nAKA Partners",
-      image: "/images/about/06-leader-3.jpg",
+      image: "/images/about/leader-altaf.jpg",
     },
     {
       name: "AMYN SAMJI",
@@ -178,97 +215,32 @@ export const aboutContent = {
     {
       name: "NASHIR JIWANI",
       role: "Executive Partner,\nAKA Partners",
-      image: "/images/about/04-leader-1.jpg",
+      image: "/images/about/leader-nashir.jpg",
     },
   ],
 };
 
 export const ourModelContent = {
-  heroTitle: "Connecting\nis only the\nbeginning",
-  heroBody: "Together, we build more than\nnetworks – we build futures.",
+  heroTitle: "Inside the\nhubsite",
+  heroBody:
+    "A guided walkthrough of the building that holds every Connecting\nCommunities service under one roof.",
   heroImage: "/images/our-model/01-hero-boy-classroom.jpg",
 
-  modelTitle: "Our model",
-  modelBullets: [
+  // Walkthrough chapters — driven by the WebGL scroll timeline.
+  walkthroughIntroTitle: "A walkthrough of the hubsite",
+  walkthroughIntroBody:
+    "Each Transformation Aspirational Centre — TrAC — brings every Connecting Communities service together in one welcoming address. Scroll to step inside.",
+
+  // Supplementary information that appears AFTER the walkthrough
+  afterTitle: "Our model",
+  afterBullets: [
     "Connecting Communities operates through Community Smart Hubs that bring essential services together in one place",
     "Each hub is supported by a network of nearby kiosks, all connected through a shared system that makes access easier and more distributed for communities to use",
     "Through this unified platform, service providers across connectivity, finance, agriculture, clean water, education, and tele-conferencing operate within a common infrastructure",
     "This integration removes the need for communities to navigate multiple, disconnected systems, allowing people to access what they need more simply and efficiently",
   ],
-  modelImage: "/images/ecosystem/03-card-farmer-sunset.jpg",
-
-  ecosystemBody:
-    "As community smart hubs and digital centers connect across different locations, they form a growing local network that can evolve over time. This model enables services to reach people where they are, while remaining part of a single, adaptable ecosystem designed to support long-term community progress.",
-
-  // Used by OurModelJourney as the section intro (above the scrollytelling)
-  launchTitle: "Inside a TrAC",
-  launchBody:
-    "Our launch begins in Rwanda — our regional headquarters — and rolls out across East Africa with X community smart hubs and X digital centers by the end of 2026. Step inside one of our Transformation Aspirational Centres to see what that looks like.",
-
-  // Closing band beneath the journey (kept from the previous launch section)
-  bottomBandImage: "/images/our-model/05-village-aerial-landscape.jpg",
-  bottomBandTitle: "X community smart hubs\nY digital centers",
-  bottomBandSub: "by the end of 2026 — beginning in Rwanda",
 };
 
-/**
- * Scroll-driven scenes for the TrAC walkthrough on the Our Model page.
- * Each scene becomes one full viewport of scroll distance.
- *
- * To swap in real .glb/.gltf models from AKA Partners later, replace the
- * `image` field with a `model` field and update SceneLayer in
- * OurModelJourney.js to render <Canvas><Model/></Canvas>.
- */
-export const trACScenes = [
-  {
-    id: "exterior",
-    label: "Exterior",
-    title: "A TrAC at the heart of the community",
-    body: "Each Transformation Aspirational Centre — TrAC — is a single welcoming address where every Connecting Communities service lives side by side. This is what arriving at one looks like.",
-    image: "/images/our-model/journey/01-exterior.jpg",
-    alt: "Exterior of a TrAC building with TrAC and aspire signage at dusk",
-  },
-  {
-    id: "reception",
-    label: "Reception",
-    title: "One front desk for everything",
-    body: "Aspire microfinance and TrAC services share a single counter, so a farmer applying for a loan, a parent enrolling a child, and a trader topping up data all start in the same place.",
-    image: "/images/our-model/journey/02-reception-aspire.jpg",
-    alt: "Reception area with Aspire microfinance and TrAC counters",
-  },
-  {
-    id: "tele-conferencing",
-    label: "Tele-conferencing",
-    title: "Connecting people across borders",
-    body: "Private rooms equipped for tele-conferencing let community members meet a doctor, an instructor, or a relative anywhere in the world — without leaving the village.",
-    image: "/images/our-model/journey/03-trac-room.jpg",
-    alt: "Tele-conferencing room with desk, monitor and TrAC branding",
-  },
-  {
-    id: "edtech",
-    label: "EdTech",
-    title: "Learning, locally",
-    body: "Classrooms host literacy, vocational training, and digital-skills programmes — built into the same building as the rest of the services families already rely on.",
-    image: "/images/our-model/journey/05-classroom.jpg",
-    alt: "Classroom with shared desks and screens",
-  },
-  {
-    id: "agritech",
-    label: "AgriTech",
-    title: "Tools for the farms outside the door",
-    body: "AgroEdu counters give smallholder farmers access to diversified-crop guidance, market prices, and the buyers who want to source from them.",
-    image: "/images/our-model/journey/07-agroedu.jpg",
-    alt: "AgroEdu counter with farming education poster",
-  },
-  {
-    id: "marketplace",
-    label: "Marketplace",
-    title: "Where the local economy lives",
-    body: "Shelving, payment, and inventory tools turn the same building into a community marketplace — owned by the people who use it, supported by everything else under this roof.",
-    image: "/images/our-model/journey/08-marketplace.jpg",
-    alt: "Marketplace and retail shelving area with chalkboard pricing",
-  },
-];
 
 export const ecosystemContent = {
   heroTitle: "This is what\nconnection\nlooks like",
@@ -283,103 +255,147 @@ export const ecosystemContent = {
   ],
   cards: [
     {
-      title: "Farmer in highlands",
-      category: "people",
-      image: "/images/ecosystem/02-card-farmer-rice.jpg",
-      size: "md",
-      row: 1,
-      col: 3,
-      rotate: -2,
-    },
-    {
-      title: "Bridge crossing",
-      category: "people",
-      image: "/images/ecosystem/03-card-farmer-sunset.jpg",
-      size: "md",
-      row: 1,
-      col: 5,
-      rotate: 1,
-    },
-    {
-      title: "Market vendor",
+      id: "uwase",
+      title: "Meet Uwase",
+      eyebrow: "People",
       category: "people",
       image: "/images/ecosystem/01-hero-market-shop.jpg",
-      size: "sm",
-      row: 1,
-      col: 6,
-      rotate: 0,
+      // Position is a percentage relative to the gallery box; size is in
+      // viewport-relative units. Together they give a foam-style scatter
+      // (varied sizes, breathable spacing) without overlapping captions.
+      x: 18, y: 16,
+      w: 22, h: 30,
+      rotate: -2,
+      story: {
+        intro: "Uwase runs a tailoring stall in Kigali. Last year she had no way to keep records or accept digital payments — today she does both, from the same hub her daughter learns to read in.",
+        body: "She joined the local TrAC for a digital-skills evening class, opened her first bank account through Aspire microfinance the following week, and now uses a simple mobile POS to take payments from customers across the country. Her stall is the same — but the reach of the business has changed completely.",
+      },
     },
     {
-      title: "Sunrise meeting",
+      id: "highland-farmer",
+      title: "Highland farmer",
+      eyebrow: "People",
+      category: "people",
+      image: "/images/ecosystem/02-card-farmer-rice.jpg",
+      x: 44, y: 8,
+      w: 16, h: 22,
+      rotate: 1,
+      story: {
+        intro: "From rice terraces, market prices used to feel like a rumour. Now they arrive on screen, twice a day.",
+        body: "Through the AgroEdu counter, smallholder farmers receive crop guidance, weather alerts, and direct buyer connections — putting fairer pricing within reach.",
+      },
+    },
+    {
+      id: "bridge-crossing",
+      title: "Bridge crossing",
+      eyebrow: "Partnerships",
       category: "partnerships",
       image: "/images/ecosystem/03-card-farmer-sunset.jpg",
-      size: "lg",
-      row: 1,
-      col: 8,
+      x: 64, y: 14,
+      w: 24, h: 32,
       rotate: 1,
+      story: {
+        intro: "A connected hub at the end of a remote bridge means a journey doesn't have to start with a missing service.",
+        body: "Each TrAC opens a single welcoming door to finance, training, and tele-conferencing — wherever the road ends.",
+      },
     },
     {
-      title: "Hands joined",
-      category: "partnerships",
-      image: "/images/about/08-sector-connectivity.jpg",
-      size: "md",
-      row: 1,
-      col: 9,
-      rotate: -1,
-    },
-    {
-      title: "Community elder",
-      category: "leaders",
-      image: "/images/ecosystem/04-card-woman-laundry.jpg",
-      size: "md",
-      row: 3,
-      col: 2,
-      rotate: -2,
-    },
-    {
-      title: "Children with laptop",
-      category: "education",
-      image: "/images/home/05-partner-edtech-tree.jpg",
-      size: "md",
-      row: 3,
-      col: 4,
-      rotate: 0,
-    },
-    {
-      title: "Water collection",
-      category: "people",
-      image: "/images/ecosystem/06-card-water-tap.jpg",
-      size: "md",
-      row: 3,
-      col: 5,
-      rotate: 0,
-    },
-    {
-      title: "Telehealth booth",
-      category: "leaders",
-      image: "/images/about/11-sector-agritech.jpg",
-      size: "sm",
-      row: 3,
-      col: 7,
-      rotate: 2,
-    },
-    {
+      id: "market-aerial",
       title: "Aerial market",
+      eyebrow: "Leaders",
       category: "leaders",
       image: "/images/ecosystem/08-card-aerial-market.jpg",
-      size: "md",
-      row: 3,
-      col: 8,
+      x: 8, y: 50,
+      w: 20, h: 26,
       rotate: 0,
+      story: {
+        intro: "Seen from above, a community market becomes a network — vendors, buyers, and the hub that makes it visible.",
+        body: "Inventory tools and shared payment rails turn the same building into a community marketplace owned by the people who use it.",
+      },
     },
     {
-      title: "Mountain bridge",
+      id: "edtech-class",
+      title: "Children with laptops",
+      eyebrow: "Education",
+      category: "education",
+      image: "/images/home/05-partner-edtech-tree.jpg",
+      x: 32, y: 56,
+      w: 22, h: 28,
+      rotate: -1,
+      story: {
+        intro: "EdTech classrooms host literacy, vocational training, and digital-skills programmes for every age.",
+        body: "Built into the same building as the rest of the services families already rely on — so showing up to learn is the same trip as showing up for everything else.",
+      },
+    },
+    {
+      id: "water-tap",
+      title: "Water collection",
+      eyebrow: "People",
+      category: "people",
+      image: "/images/ecosystem/06-card-water-tap.jpg",
+      x: 58, y: 60,
+      w: 17, h: 23,
+      rotate: 2,
+      story: {
+        intro: "WashTech infrastructure — clean water, pay-as-you-use sanitation — sits next to every other service the community depends on.",
+        body: "Because access shouldn't depend on travelling to a different building for every thing a family needs in a day.",
+      },
+    },
+    {
+      id: "elder",
+      title: "Community elder",
+      eyebrow: "Leaders",
+      category: "leaders",
+      image: "/images/ecosystem/04-card-woman-laundry.jpg",
+      x: 80, y: 54,
+      w: 16, h: 24,
+      rotate: -2,
+      story: {
+        intro: "Trust is built in person. The hub is designed to be a place that welcomes the elders who lead the community first.",
+        body: "Every TrAC opens with the same front desk and the same staff who know everyone's name — financial services, classrooms, and tele-conferencing all live behind that desk.",
+      },
+    },
+    {
+      id: "mountain-bridge",
+      title: "Connection at altitude",
+      eyebrow: "Partnerships",
       category: "partnerships",
       image: "/images/home/04-hero-mountain-laptop.jpg",
-      size: "md",
-      row: 3,
-      col: 10,
+      x: 16, y: 82,
+      w: 22, h: 24,
       rotate: 1,
+      story: {
+        intro: "Connectivity reaches places the road doesn't always.",
+        body: "Reliable mobile and fixed-line networks are the digital backbone of every community we serve.",
+      },
+    },
+    {
+      id: "hands",
+      title: "Hands joined",
+      eyebrow: "Partnerships",
+      category: "partnerships",
+      image: "/images/about/08-sector-connectivity.jpg",
+      x: 44, y: 86,
+      w: 18, h: 22,
+      rotate: 0,
+      story: {
+        intro: "Connecting Communities is built by partners — best-in-class operators, working under one ecosystem.",
+        body: "Each capability is independent, but operated through a shared platform — so the user only ever has one front door.",
+      },
+    },
+    {
+      id: "telehealth",
+      title: "Telehealth booth",
+      eyebrow: "Leaders",
+      category: "leaders",
+      image: "/images/about/11-sector-agritech.jpg",
+      x: 68, y: 84,
+      w: 16, h: 22,
+      rotate: 2,
+      story: {
+        intro: "Tele-conferencing rooms let community members meet a doctor, an instructor, or a relative anywhere in the world — without leaving the village.",
+        body: "Private, equipped, and bookable — part of the same building as everything else the family needs.",
+      },
     },
   ],
 };
@@ -404,27 +420,3 @@ export const contactContent = {
   formCtaLabel: "SUBMIT",
 };
 
-export const partnersContent = {
-  heroTitle: "Our\npartners",
-  heroBody: "Specialised businesses, working under one ecosystem.",
-  heroImage: "/images/about/08-sector-connectivity.jpg",
-
-  introTitle: "Partners & collaboration",
-  introBody:
-    "Connecting Communities brings together specialised businesses across essential services, aligning their capabilities through a shared platform, each operating independently, supported by best-in-class technology partners. Within Connecting Communities, selected capabilities are integrated into a single ecosystem, allowing proven platforms to work together to meet essential needs and enable sustainable community progress.",
-
-  partnerCards: [
-    {
-      label: "Connectivity",
-      image: "/images/partners/08-sector-connectivity.jpg",
-    },
-    { label: "FinTech", image: "/images/partners/06-partner-fintech-arch.jpg" },
-    { label: "EdTech", image: "/images/partners/05-partner-edtech-tree.jpg" },
-    { label: "WashTech", image: "/images/partners/09-sector-washtech.jpg" },
-    { label: "AgriTech", image: "/images/partners/11-sector-agritech.jpg" },
-    {
-      label: "Tele-conferencing",
-      image: "/images/partners/10-sector-teleconferencing.jpg",
-    },
-  ],
-};

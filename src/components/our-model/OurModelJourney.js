@@ -1,77 +1,59 @@
 "use client";
 
-import { useRef } from "react";
-import styled from "styled-components";
-import Image from "next/image";
-import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { Container, H2, Body } from "@/components/primitives";
-import Reveal from "@/components/Reveal";
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import styled, { css } from "styled-components";
+import SafeBoundary from "@/components/SafeBoundary";
+import useChapterScroll from "@/hooks/useChapterScroll";
+import { CHAPTERS } from "@/lib/journey-chapters";
 
 /**
  * OurModelJourney
  *
- * A scroll-driven cinematic walkthrough of a TrAC (Transformation
- * Aspirational Centre). The user scrolls and the camera "moves" through
- * the building scene by scene: exterior -> reception -> services rooms.
+ * Pyramids-of-Meroë style cinematic walkthrough — sticky-pinned scroll
+ * proxy with smoothed camera animation.
  *
- * Implementation notes:
- *  - The outer <Wrap> is tall (one full viewport per scene of scroll
- *    distance) and contains a sticky 100vh stage. As the user scrolls
- *    through the wrap, the stage stays pinned and we cross-fade scenes
- *    inside it based on scroll progress.
- *  - Each scene gets a Ken Burns scale ramp (1.0 -> 1.08) over its own
- *    visible window so it FEELS like the camera is pushing into the room.
- *  - Captions live in a separate sticky overlay, fading in/out
- *    independently per scene. This is the same pattern used by
- *    scroll-storytelling sites built with framer-motion.
- *  - Once the real .glb files arrive from AKA Partners, swap the
- *    <Image> blocks below for <Canvas><Model/></Canvas> from
- *    @react-three/fiber. Everything else stays.
+ * KEY DECISIONS (after iteration with the client's screen recording)
+ *
+ * 1. Sticky pinning instead of position:fixed engagement
+ *    The previous "lock body scroll while engaged" approach broke on
+ *    fast macOS touchpad scrolls — the user would fly past the engage
+ *    point before it fired and end up looking at empty space below.
+ *    Sticky just works: the host is `chapterCount × 100vh` tall, the
+ *    inner stage is `position: sticky; top: 0; height: 100vh`, and the
+ *    chapter is always derived from current scroll position. The user
+ *    can never get out of sync.
+ *
+ *    (Pre-requisite: the GlobalStyle no longer sets `overflow-x: hidden`
+ *    on html/body, which would have killed sticky on every descendant.)
+ *
+ * 2. Captions ALWAYS in side margins (left or right, with optional top
+ *    or bottom anchor). NEVER centered on top of the model. The
+ *    "title-center" layout from earlier iterations placed text directly
+ *    over the building at low opacity — illegible. Now the only
+ *    "centered" layouts are `text-only-dark` chapters where the model
+ *    is fully hidden anyway.
+ *
+ * 3. The camera animation is decoupled from scroll position. The
+ *    hook ensures every chapter transition takes ~850ms, regardless of
+ *    how fast the user scrolled. So even a fling-scroll produces a
+ *    cinematic glide, not a teleport.
  */
 
-const Intro = styled.section`
-  background: ${({ theme }) => theme.colors.cream};
-  padding: 4.5rem 0 3rem;
-`;
+const JourneyScene = dynamic(() => import("./JourneyScene"), {
+  ssr: false,
+  loading: () => null,
+});
 
-const IntroTitle = styled(H2)`
-  font-size: clamp(2rem, 3.4vw, 2.85rem);
-  margin-bottom: 1rem;
-`;
+/* -------------------------------------------------------------------------- */
+/* Styled                                                                     */
+/* -------------------------------------------------------------------------- */
 
-const IntroBody = styled(Body)`
-  color: ${({ theme }) => theme.colors.navy};
-  line-height: 1.7;
-  letter-spacing: 0.01em;
-  max-width: 78ch;
-`;
-
-const ScrollHint = styled.div`
-  margin-top: 2.25rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.7rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: ${({ theme }) => theme.colors.orange};
-  font-weight: ${({ theme }) => theme.fontWeights.semibold};
-
-  &::after {
-    content: "";
-    display: inline-block;
-    width: 56px;
-    height: 1px;
-    background: ${({ theme }) => theme.colors.orange};
-  }
-`;
-
-const Wrap = styled.section`
+const Host = styled.section`
   position: relative;
   width: 100%;
-  /* One viewport of scroll distance per scene; tweak if you change SCENES.length */
-  height: ${({ $scenes }) => $scenes * 100}vh;
-  background: ${({ theme }) => theme.colors.black};
+  background: #fff6eb;
+  /* height set inline via hostHeightVh */
 `;
 
 const Sticky = styled.div`
@@ -82,449 +64,408 @@ const Sticky = styled.div`
   overflow: hidden;
 `;
 
-const Stage = styled.div`
+const CanvasLayer = styled.div`
   position: absolute;
   inset: 0;
+  z-index: 1;
+  & canvas { width: 100% !important; height: 100% !important; display: block; }
 `;
 
-const Scene = styled(motion.div)`
+const FallbackBg = styled.div`
   position: absolute;
   inset: 0;
-  will-change: opacity, transform;
+  z-index: 0;
+  /* Background updated per-frame from the chapter colour mix. Always
+   * visible behind the canvas so transitions never flash white. */
 `;
 
-const SceneImage = styled(motion.div)`
+const Overlay = styled.div`
   position: absolute;
   inset: 0;
-  will-change: transform;
-
-  & img {
-    object-fit: cover;
-  }
-
-  /* Subtle vignette so caption text has contrast regardless of scene */
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(180deg, rgba(11,16,24,0) 35%, rgba(11,16,24,0.55) 78%, rgba(11,16,24,0.78) 100%),
-      linear-gradient(90deg, rgba(11,16,24,0.45) 0%, rgba(11,16,24,0) 45%);
-    pointer-events: none;
-  }
-`;
-
-const Captions = styled.div`
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  display: flex;
-  align-items: flex-end;
   z-index: 2;
+  pointer-events: none;
 `;
 
-const CaptionWrap = styled(motion.div)`
+/* -------------------------------------------------------------------------- */
+/* Caption variants                                                           */
+/* -------------------------------------------------------------------------- */
+
+/* Each caption variant lives in a margin position. Never centered over
+ * the model. The text-only-dark chapters render the model fully invisible
+ * so a centered caption there is safe. */
+
+const captionBase = css`
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 0 0 4rem;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
   will-change: opacity, transform;
+  transition: opacity 520ms cubic-bezier(.22,1,.36,1);
+  max-width: min(440px, 42vw);
+  /* Reserve room for the fixed Header (92px) at the top of the page. */
+  @media (max-width: 900px) { max-width: 88vw; }
 `;
 
-const CaptionInner = styled.div`
-  max-width: ${({ theme }) => theme.layout.contentWidth};
-  margin: 0 auto;
-  padding: 0 2.5rem;
-  color: white;
-  max-width: 720px;
-  margin-left: max(2.5rem, calc((100vw - ${({ theme }) => theme.layout.contentWidth}) / 2));
-
-  @media (max-width: 900px) {
-    margin-left: 1.5rem;
-    padding: 0 1rem 0 0;
-  }
+const SideLeft = styled.div`
+  ${captionBase};
+  top: 50%;
+  left: clamp(1.5rem, 5vw, 4.5rem);
+  transform: translateY(-50%);
+  text-align: left;
 `;
-
-const ChapterLabel = styled.div`
-  display: inline-flex;
+const SideRight = styled.div`
+  ${captionBase};
+  top: 50%;
+  right: clamp(1.5rem, 5vw, 4.5rem);
+  transform: translateY(-50%);
+  text-align: left;
+`;
+const BottomLeft = styled.div`
+  ${captionBase};
+  bottom: clamp(2.5rem, 8vw, 6rem);
+  left: clamp(1.5rem, 5vw, 4.5rem);
+  text-align: left;
+`;
+const BottomRight = styled.div`
+  ${captionBase};
+  bottom: clamp(2.5rem, 8vw, 6rem);
+  right: clamp(1.5rem, 5vw, 4.5rem);
+  text-align: left;
+`;
+const TopLeft = styled.div`
+  ${captionBase};
+  top: clamp(7rem, 14vh, 10rem);  /* 92px header + breathing room */
+  left: clamp(1.5rem, 5vw, 4.5rem);
+  text-align: left;
+`;
+const CenterDark = styled.div`
+  ${captionBase};
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
   align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 1rem;
+  max-width: min(720px, 80vw);
+`;
+
+/* -------------------------------------------------------------------------- */
+/* Caption typography                                                         */
+/* -------------------------------------------------------------------------- */
+
+const Eyebrow = styled.div`
   font-size: 0.72rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: ${({ theme }) => theme.colors.orange};
-  font-weight: ${({ theme }) => theme.fontWeights.semibold};
-
-  & .num {
-    color: white;
-    opacity: 0.7;
-  }
-
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  & .num { opacity: 0.7; }
   & .bar {
     display: inline-block;
-    width: 36px;
-    height: 1px;
+    width: 36px; height: 1px;
     background: ${({ theme }) => theme.colors.orange};
   }
 `;
 
-const SceneTitle = styled.h3`
+const Title = styled.h2`
   font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: clamp(1.8rem, 3.4vw, 2.85rem);
+  font-size: clamp(1.7rem, 3.2vw, 2.6rem);
   font-weight: ${({ theme }) => theme.fontWeights.semibold};
   line-height: 1.1;
-  margin: 0 0 0.85rem 0;
-  color: white;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
+  margin: 0 0 1rem 0;
+  color: ${({ $dark }) => ($dark ? "#fff" : "#1a1a1a")};
+  text-shadow: ${({ $dark }) =>
+    $dark
+      ? "0 2px 24px rgba(0,0,0,0.5)"
+      : "0 1px 14px rgba(255,255,255,0.7), 0 0 4px rgba(255,255,255,0.45)"};
+  max-width: 22ch;
 `;
 
-const SceneBody = styled.p`
+const Body = styled.p`
   margin: 0;
-  font-size: clamp(0.95rem, 1.1vw, 1.05rem);
+  font-size: clamp(0.95rem, 1.05vw, 1.05rem);
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.9);
-  max-width: 56ch;
+  max-width: 36ch;
+  color: ${({ $dark }) => ($dark ? "rgba(255,255,255,0.9)" : "#1a1a1a")};
+  text-shadow: ${({ $dark }) =>
+    $dark
+      ? "0 2px 24px rgba(0,0,0,0.5)"
+      : "0 1px 12px rgba(255,255,255,0.7), 0 0 3px rgba(255,255,255,0.4)"};
+  font-weight: 500;
 `;
 
-const ProgressRail = styled.div`
+/* -------------------------------------------------------------------------- */
+/* Right rail                                                                 */
+/* -------------------------------------------------------------------------- */
+
+const Rail = styled.div`
   position: absolute;
   top: 50%;
-  right: 2rem;
+  right: 1.5rem;
   transform: translateY(-50%);
+  z-index: 5;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  z-index: 3;
-
+  align-items: center;
+  gap: 0.7rem;
+  pointer-events: auto;
   @media (max-width: 768px) { display: none; }
 `;
-
-const ProgressDot = styled(motion.div)`
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: white;
-  will-change: opacity, transform;
+const RailLabel = styled.div`
+  position: absolute;
+  right: 22px;
+  top: -36px;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  white-space: nowrap;
+  color: ${({ $dark }) => ($dark ? "#fff" : "#1a1a1a")};
+  opacity: 0.85;
+  transition: color 320ms;
+`;
+const RailLine = styled.div`
+  position: absolute;
+  right: 6px;
+  top: 8px; bottom: 8px;
+  width: 1px;
+  background: ${({ $dark }) =>
+    $dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.18)"};
+  z-index: -1;
+`;
+const Dot = styled.button`
+  position: relative;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  width: 14px; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+  & .inner {
+    width: 8px; height: 8px;
+    border-radius: 999px;
+    background: ${({ $dark }) => ($dark ? "#fff" : "#1a1a1a")};
+    transform: scale(${({ $active }) => ($active ? 1.5 : 1)});
+    opacity: ${({ $active }) => ($active ? 1 : 0.4)};
+    transition: transform 280ms cubic-bezier(.22,1,.36,1),
+                opacity 280ms cubic-bezier(.22,1,.36,1),
+                background 320ms;
+  }
+  & .ring {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 999px;
+    border: 1px solid ${({ $dark }) => ($dark ? "#fff" : "#1a1a1a")};
+    opacity: ${({ $active }) => ($active ? 0.9 : 0)};
+    transition: opacity 280ms cubic-bezier(.22,1,.36,1);
+  }
 `;
 
-const Closing = styled.section`
-  position: relative;
-  width: 100%;
-  height: clamp(320px, 38vw, 500px);
-  overflow: hidden;
+/* -------------------------------------------------------------------------- */
+/* Scroll hint                                                                */
+/* -------------------------------------------------------------------------- */
 
-  &::after {
+const ScrollHint = styled.div`
+  position: absolute;
+  left: 50%;
+  bottom: 2.2rem;
+  transform: translateX(-50%);
+  z-index: 4;
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: ${({ $dark }) => ($dark ? "#fff" : "#1a1a1a")};
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.6rem;
+  pointer-events: none;
+  opacity: ${({ $show }) => ($show ? 1 : 0)};
+  transition: opacity 480ms cubic-bezier(.22,1,.36,1);
+  & .arrow {
+    width: 1px; height: 28px;
+    background: currentColor;
+    position: relative;
+    animation: nudge 1.8s ease-in-out infinite;
+  }
+  & .arrow::after {
     content: "";
     position: absolute;
-    inset: 0;
-    background: linear-gradient(0deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 60%);
+    bottom: 0; left: 50%;
+    width: 8px; height: 8px;
+    border-right: 1px solid currentColor;
+    border-bottom: 1px solid currentColor;
+    transform: translate(-50%, 4px) rotate(45deg);
+  }
+  @keyframes nudge {
+    0%, 100% { transform: translateY(0);   opacity: 0.6; }
+    50%      { transform: translateY(6px); opacity: 1;   }
   }
 `;
 
-const ClosingInner = styled.div`
-  position: absolute;
-  inset: auto 0 0 0;
-  z-index: 2;
-  max-width: ${({ theme }) => theme.layout.maxWidth};
-  margin: 0 auto;
-  padding: 0 5rem 3rem;
-  color: white;
+/* -------------------------------------------------------------------------- */
+/* WebGL detect                                                                */
+/* -------------------------------------------------------------------------- */
 
-  & h3 {
-    font-family: ${({ theme }) => theme.fonts.heading};
-    font-size: clamp(2rem, 3.6vw, 3rem);
-    font-weight: ${({ theme }) => theme.fontWeights.semibold};
-    line-height: 1.1;
-    white-space: pre-line;
-    margin: 0;
-    color: white;
+function detectWebGL() {
+  if (typeof window === "undefined") return false;
+  try {
+    const c = document.createElement("canvas");
+    return !!(window.WebGLRenderingContext &&
+      (c.getContext("webgl2") || c.getContext("webgl")));
+  } catch {
+    return false;
   }
-  & p {
-    margin-top: 0.5rem;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 0.95rem;
-  }
-  @media (max-width: 768px) { padding: 0 1.5rem 2rem; }
-`;
-
-/* -------------------------------------------------------------------------- */
-/* Scene data                                                                 */
-/* -------------------------------------------------------------------------- */
-
-const DEFAULT_SCENES = [
-  {
-    id: "exterior",
-    label: "Exterior",
-    title: "A TrAC at the heart of the community",
-    body:
-      "Each Transformation Aspirational Centre — TrAC — is a single welcoming address where every Connecting Communities service lives side by side. This is what arriving at one looks like.",
-    image: "/images/our-model/journey/01-exterior.jpg",
-    alt: "Exterior of a TrAC building with TrAC and aspire signage at dusk",
-  },
-  {
-    id: "reception",
-    label: "Reception",
-    title: "One front desk for everything",
-    body:
-      "Aspire microfinance and TrAC services share a single counter, so a farmer applying for a loan, a parent enrolling a child in a class, and a trader topping up data all start in the same place.",
-    image: "/images/our-model/journey/02-reception-aspire.jpg",
-    alt: "Reception area featuring Aspire microfinance and TrAC counters",
-  },
-  {
-    id: "tele-conferencing",
-    label: "Tele-conferencing",
-    title: "Connecting people across borders",
-    body:
-      "Private rooms equipped for tele-conferencing let community members meet a doctor, an instructor, or a relative anywhere in the world — without leaving the village.",
-    image: "/images/our-model/journey/03-trac-room.jpg",
-    alt: "Tele-conferencing room with desk, monitor and TrAC branding",
-  },
-  {
-    id: "edtech",
-    label: "EdTech",
-    title: "Learning, locally",
-    body:
-      "Classrooms host literacy, vocational training, and digital-skills programmes — built into the same building as the rest of the services families already rely on.",
-    image: "/images/our-model/journey/05-classroom.jpg",
-    alt: "Education room with shared desks, screens and Education-themed wall art",
-  },
-  {
-    id: "agritech",
-    label: "AgriTech",
-    title: "Tools for the farms outside the door",
-    body:
-      "AgroEdu counters give smallholder farmers access to diversified-crop guidance, market prices, and the buyers who want to source from them.",
-    image: "/images/our-model/journey/07-agroedu.jpg",
-    alt: "AgroEdu counter with farming education poster behind it",
-  },
-  {
-    id: "marketplace",
-    label: "Marketplace",
-    title: "Where the local economy lives",
-    body:
-      "Shelving, payment, and inventory tools turn the same building into a community marketplace — owned by the people who use it, supported by everything else under this roof.",
-    image: "/images/our-model/journey/08-marketplace.jpg",
-    alt: "Marketplace and retail shelving area with chalkboard pricing",
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/* Scene component                                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Calculate the timing window for scene #i out of n total scenes.
- * Scenes overlap slightly so cross-fades feel natural.
- *
- * Returns {fadeIn, hold, fadeOut} as scrollYProgress values.
- */
-function sceneWindow(i, n) {
-  const slot = 1 / n;            // each scene's slot of the timeline
-  const start = i * slot;
-  const end = (i + 1) * slot;
-  const fade = slot * 0.18;      // 18% of slot is cross-fade
-
-  return {
-    fadeInStart:  i === 0 ? 0 : start - fade,
-    fadeInEnd:    i === 0 ? 0 : start + fade,
-    fadeOutStart: i === n - 1 ? 1 : end - fade,
-    fadeOutEnd:   i === n - 1 ? 1 : end + fade,
-    holdStart:    start,
-    holdEnd:      end,
-  };
 }
 
-function SceneLayer({ scene, index, total, scrollYProgress, priority, reduceMotion }) {
-  const w = sceneWindow(index, total);
-
-  // Opacity: fade in over fadeIn window, hold full opacity, fade out over fadeOut window
-  const opacity = useTransform(
-    scrollYProgress,
-    [w.fadeInStart, w.fadeInEnd, w.fadeOutStart, w.fadeOutEnd],
-    [index === 0 ? 1 : 0, 1, 1, index === total - 1 ? 1 : 0]
-  );
-
-  // Ken Burns: scene image scales from 1.0 to 1.08 over its visible window
-  const scale = useTransform(
-    scrollYProgress,
-    [w.fadeInStart, w.fadeOutEnd],
-    reduceMotion ? [1, 1] : [1.0, 1.08]
-  );
-
-  // Subtle vertical drift to add "stepping forward" feel
-  const y = useTransform(
-    scrollYProgress,
-    [w.fadeInStart, w.fadeOutEnd],
-    reduceMotion ? ["0%", "0%"] : ["2%", "-2%"]
-  );
-
-  return (
-    <Scene style={{ opacity }} aria-hidden={index !== 0 ? "true" : "false"}>
-      <SceneImage style={{ scale, y }}>
-        <Image
-          src={scene.image}
-          alt={scene.alt}
-          fill
-          sizes="100vw"
-          priority={priority}
-          quality={88}
-        />
-      </SceneImage>
-    </Scene>
-  );
-}
-
-function ProgressDotItem({ index, total, scrollYProgress }) {
-  const w = sceneWindow(index, total);
-  const opacity = useTransform(
-    scrollYProgress,
-    [w.fadeInStart, w.holdStart, w.holdEnd, w.fadeOutEnd],
-    [0.35, 1, 1, 0.35]
-  );
-  const scale = useTransform(
-    scrollYProgress,
-    [w.fadeInStart, w.holdStart, w.holdEnd, w.fadeOutEnd],
-    [1, 1.4, 1.4, 1]
-  );
-  return <ProgressDot style={{ opacity, scale }} />;
-}
-
-function ProgressIndicator({ total, scrollYProgress }) {
-  return (
-    <ProgressRail aria-hidden="true">
-      {Array.from({ length: total }).map((_, i) => (
-        <ProgressDotItem
-          key={i}
-          index={i}
-          total={total}
-          scrollYProgress={scrollYProgress}
-        />
-      ))}
-    </ProgressRail>
-  );
-}
-
-function Caption({ scene, index, total, scrollYProgress, reduceMotion }) {
-  const w = sceneWindow(index, total);
-
-  // Captions fade in slightly after the scene image, fade out slightly before
-  const captionFade = (1 / total) * 0.10;
-  const captionOpacity = useTransform(
-    scrollYProgress,
-    [
-      Math.max(0, w.holdStart - captionFade),
-      w.holdStart + captionFade,
-      w.holdEnd - captionFade,
-      Math.min(1, w.holdEnd + captionFade),
-    ],
-    [index === 0 ? 1 : 0, 1, 1, index === total - 1 ? 1 : 0]
-  );
-
-  const captionY = useTransform(
-    scrollYProgress,
-    [w.holdStart, w.holdEnd],
-    reduceMotion ? ["0px", "0px"] : ["20px", "-20px"]
-  );
-
-  const num = String(index + 1).padStart(2, "0");
-  const totalStr = String(total).padStart(2, "0");
-
-  return (
-    <CaptionWrap style={{ opacity: captionOpacity, y: captionY }}>
-      <CaptionInner>
-        <ChapterLabel>
-          <span className="num">{num} / {totalStr}</span>
-          <span className="bar" />
-          {scene.label}
-        </ChapterLabel>
-        <SceneTitle>{scene.title}</SceneTitle>
-        <SceneBody>{scene.body}</SceneBody>
-      </CaptionInner>
-    </CaptionWrap>
-  );
-}
-
-
-
 /* -------------------------------------------------------------------------- */
-/* Main component                                                             */
+/* CaptionFor                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export default function OurModelJourney({ data, scenes }) {
-  const wrapRef = useRef(null);
-  const reduceMotion = useReducedMotion();
-  const SCENES = scenes && scenes.length > 0 ? scenes : DEFAULT_SCENES;
-
-  const { scrollYProgress } = useScroll({
-    target: wrapRef,
-    offset: ["start start", "end end"],
-  });
-
-  return (
+function CaptionFor({ chapter, dark, active }) {
+  const inner = (
     <>
-      <Intro>
-        <Container>
-          <Reveal>
-            <IntroTitle>{data?.launchTitle || "Inside a TrAC"}</IntroTitle>
-            <IntroBody>
-              {data?.launchBody ||
-                "Our launch will roll out across East Africa, beginning with Rwanda as our regional headquarters. Step inside one of our Transformation Aspirational Centres."}
-            </IntroBody>
-            <ScrollHint>Scroll to enter</ScrollHint>
-          </Reveal>
-        </Container>
-      </Intro>
-
-      <Wrap ref={wrapRef} $scenes={SCENES.length}>
-        <Sticky>
-          <Stage>
-            {SCENES.map((scene, i) => (
-              <SceneLayer
-                key={scene.id || i}
-                scene={scene}
-                index={i}
-                total={SCENES.length}
-                scrollYProgress={scrollYProgress}
-                priority={i === 0}
-                reduceMotion={reduceMotion}
-              />
-            ))}
-          </Stage>
-
-          <Captions>
-            {SCENES.map((scene, i) => (
-              <Caption
-                key={`cap-${scene.id || i}`}
-                scene={scene}
-                index={i}
-                total={SCENES.length}
-                scrollYProgress={scrollYProgress}
-                reduceMotion={reduceMotion}
-              />
-            ))}
-          </Captions>
-
-          <ProgressIndicator total={SCENES.length} scrollYProgress={scrollYProgress} />
-        </Sticky>
-      </Wrap>
-
-      {data?.bottomBandImage && (
-        <Closing>
-          <Image
-            src={data.bottomBandImage}
-            alt=""
-            fill
-            sizes="100vw"
-            style={{ objectFit: "cover" }}
-          />
-          <ClosingInner>
-            <h3>{data.bottomBandTitle}</h3>
-            <p>{data.bottomBandSub}</p>
-          </ClosingInner>
-        </Closing>
-      )}
+      <Eyebrow>
+        <span className="num">{chapter.eyebrow}</span>
+        <span className="bar" />
+        {chapter.label}
+      </Eyebrow>
+      <Title $dark={dark}>{chapter.title}</Title>
+      <Body $dark={dark}>{chapter.body}</Body>
     </>
+  );
+
+  const Component =
+    chapter.layout === "side-right"     ? SideRight :
+    chapter.layout === "bottom-left"    ? BottomLeft :
+    chapter.layout === "bottom-right"   ? BottomRight :
+    chapter.layout === "top-left"       ? TopLeft :
+    chapter.layout === "text-only-dark" ? CenterDark :
+    chapter.layout === "wireframe"      ? SideLeft :
+    chapter.layout === "side-left"      ? SideLeft :
+    SideLeft;
+
+  return (
+    <Component style={{ opacity: active ? 1 : 0 }} aria-hidden={!active}>
+      {inner}
+    </Component>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Main                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export default function OurModelJourney() {
+  const { sectionRef, chapterRef, chapterIndex, jumpTo, hostHeightVh } =
+    useChapterScroll({
+      chapterCount: CHAPTERS.length,
+      transitionMs: 850,
+    });
+
+  const fallbackRef = useRef(null);
+  const [shouldMount, setShouldMount] = useState(false);
+  const [webglOk, setWebglOk] = useState(true);
+
+  useEffect(() => { setWebglOk(detectWebGL()); }, []);
+
+  /* Mount the canvas slightly before the user reaches the section so
+   * the GLB has time to load. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = sectionRef.current;
+    if (!el) return;
+    const check = () => {
+      const r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight * 1.5) setShouldMount(true);
+    };
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    return () => window.removeEventListener("scroll", check);
+  }, [sectionRef]);
+
+  /* Live-update the fallback CSS background to track the current
+   * chapter colour so transitions never show a white flash. */
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const c = chapterRef.current ?? 0;
+      const i = Math.floor(c);
+      const f = c - i;
+      const a = CHAPTERS[Math.max(0, Math.min(CHAPTERS.length - 1, i))];
+      const b = CHAPTERS[Math.max(0, Math.min(CHAPTERS.length - 1, i + 1))];
+      const blend = (ah, bh, t) => {
+        const A = parseInt(ah.replace("#", ""), 16);
+        const B = parseInt(bh.replace("#", ""), 16);
+        const ar = (A >> 16) & 0xff, ag = (A >> 8) & 0xff, ab = A & 0xff;
+        const br = (B >> 16) & 0xff, bg = (B >> 8) & 0xff, bb = B & 0xff;
+        return `rgb(${Math.round(ar + (br - ar) * t)},${Math.round(ag + (bg - ag) * t)},${Math.round(ab + (bb - ab) * t)})`;
+      };
+      if (fallbackRef.current) {
+        fallbackRef.current.style.background = blend(a.bg, b.bg, f);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [chapterRef]);
+
+  const current = CHAPTERS[chapterIndex];
+  const dark = current.bg === "#0a0d12" || current.bg === "#0a0a0a";
+
+  return (
+    <Host
+      ref={sectionRef}
+      style={{ height: `${hostHeightVh}vh` }}
+      aria-label="Hubsite walkthrough"
+    >
+      <Sticky>
+        <FallbackBg ref={fallbackRef} />
+
+        {shouldMount && webglOk && (
+          <CanvasLayer>
+            <SafeBoundary fallback={null}>
+              <JourneyScene chapterRef={chapterRef} />
+            </SafeBoundary>
+          </CanvasLayer>
+        )}
+
+        <Overlay>
+          {CHAPTERS.map((ch, i) => (
+            <CaptionFor
+              key={ch.id}
+              chapter={ch}
+              dark={dark}
+              active={i === chapterIndex}
+            />
+          ))}
+
+          <Rail>
+            <RailLabel $dark={dark}>{current.label}</RailLabel>
+            <RailLine $dark={dark} />
+            {CHAPTERS.map((ch, i) => (
+              <Dot
+                key={ch.id}
+                $active={i === chapterIndex}
+                $dark={dark}
+                onClick={() => jumpTo(i)}
+                aria-label={`Jump to ${ch.label}`}
+              >
+                <span className="ring" />
+                <span className="inner" />
+              </Dot>
+            ))}
+          </Rail>
+
+          <ScrollHint $show={chapterIndex === 0} $dark={dark}>
+            Scroll to step
+            <span className="arrow" />
+          </ScrollHint>
+        </Overlay>
+      </Sticky>
+    </Host>
   );
 }

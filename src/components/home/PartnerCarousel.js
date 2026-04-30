@@ -16,9 +16,21 @@ const Title = styled(H2)`
   margin-bottom: 2rem;
 `;
 
-/* Track wraps in a positioned outer so we can put arrows ON the right edge */
-const Outer = styled.div`
-  position: relative;
+/**
+ * Per the client brief: arrows must sit BESIDE the images rather than
+ * overlap them. We use a 3-column grid (arrow | track | arrow) so the
+ * controls live in their own column. The arrows fade out at the
+ * appropriate scroll extremes but never sit on top of an image.
+ */
+const Row = styled.div`
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
+  gap: 1rem;
+  align-items: center;
+  @media (max-width: 768px) {
+    grid-template-columns: 40px 1fr 40px;
+    gap: 0.5rem;
+  }
 `;
 
 const Track = styled.div`
@@ -27,7 +39,7 @@ const Track = styled.div`
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  padding-bottom: 0.6rem;
+  padding: 0.4rem 0;
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
 `;
@@ -39,6 +51,8 @@ const Slide = styled.div`
   aspect-ratio: 16 / 11;
   overflow: hidden;
   background: ${({ theme }) => theme.colors.skyBlueLight};
+  transition: transform ${({ theme }) => theme.transitions.base};
+  &:hover { transform: translateY(-3px); }
   @media (max-width: 1024px) { flex-basis: calc((100% - 1.25rem) / 2); }
   @media (max-width: 640px)  { flex-basis: 86%; }
 `;
@@ -49,7 +63,7 @@ const Label = styled.div`
   display: grid;
   place-items: center;
   color: white;
-  font-family: ${({ theme }) => theme.fonts.body};
+  font-family: ${({ theme }) => theme.fonts.heading};
   font-size: clamp(1.6rem, 3vw, 2.4rem);
   font-weight: ${({ theme }) => theme.fontWeights.semibold};
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
@@ -57,34 +71,28 @@ const Label = styled.div`
   pointer-events: none;
 `;
 
-/* Arrow placed *over* the right edge of the track, vertically centred */
 const Arrow = styled.button`
-  position: absolute;
-  top: 50%;
-  right: -10px;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   border-radius: 999px;
   border: 1px solid ${({ theme }) => theme.colors.greyBg};
   background: white;
   color: ${({ theme }) => theme.colors.navy};
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   cursor: pointer;
-  z-index: 2;
-  box-shadow: 0 4px 14px rgba(11, 16, 24, 0.08);
+  box-shadow: 0 4px 14px rgba(11, 16, 24, 0.06);
   transition:
     background ${({ theme }) => theme.transitions.fast},
-    transform ${({ theme }) => theme.transitions.fast};
-  &:hover { background: ${({ theme }) => theme.colors.cream}; transform: translateY(-50%) scale(1.06); }
-  &:disabled { opacity: 0.3; cursor: not-allowed; }
-`;
-
-const ArrowLeft = styled(Arrow)`
-  right: auto;
-  left: -10px;
+    transform ${({ theme }) => theme.transitions.fast},
+    opacity ${({ theme }) => theme.transitions.fast};
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.cream};
+    transform: scale(1.06);
+  }
+  &:disabled { opacity: 0.25; cursor: not-allowed; }
+  @media (max-width: 768px) { width: 36px; height: 36px; font-size: 1rem; }
 `;
 
 export default function PartnerCarousel({ data }) {
@@ -122,7 +130,15 @@ export default function PartnerCarousel({ data }) {
     <Wrap>
       <Container>
         <Title>{data.partnersTitle}</Title>
-        <Outer>
+        <Row>
+          <Arrow
+            type="button"
+            onClick={() => scrollBy(-1)}
+            aria-label="Previous"
+            disabled={pos.atStart}
+          >
+            ‹
+          </Arrow>
           <Track ref={ref} role="region" aria-label="Partners">
             {data.partnerSlides?.map((s, i) => (
               <Slide key={s.label + i}>
@@ -136,13 +152,15 @@ export default function PartnerCarousel({ data }) {
               </Slide>
             ))}
           </Track>
-          {!pos.atStart && (
-            <ArrowLeft type="button" onClick={() => scrollBy(-1)} aria-label="Previous">‹</ArrowLeft>
-          )}
-          {!pos.atEnd && (
-            <Arrow type="button" onClick={() => scrollBy(1)} aria-label="Next">›</Arrow>
-          )}
-        </Outer>
+          <Arrow
+            type="button"
+            onClick={() => scrollBy(1)}
+            aria-label="Next"
+            disabled={pos.atEnd}
+          >
+            ›
+          </Arrow>
+        </Row>
       </Container>
     </Wrap>
   );
