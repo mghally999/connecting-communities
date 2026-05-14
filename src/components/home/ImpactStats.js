@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, memo } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { Container, H2, Body } from "@/components/primitives";
 import CTA from "@/components/CTA";
+import Reveal from "@/components/Reveal";
 
 const Dark = styled.section`
   background: ${({ theme }) => theme.colors.navy};
@@ -40,10 +41,18 @@ const Stats = styled.div`
   @media (min-width: 900px) { grid-template-columns: repeat(4, 1fr); }
 `;
 
+const statRise = keyframes`
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+`;
+
 const Stat = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  animation: ${statRise} 680ms cubic-bezier(.22,1,.36,1) both;
+  animation-delay: ${({ $i }) => ($i || 0) * 110}ms;
+  @media (prefers-reduced-motion: reduce) { animation: none; }
 `;
 
 const Big = styled.div`
@@ -112,16 +121,18 @@ export default function ImpactStats({ data }) {
   return (
     <Dark>
       <Container>
-        <TopRow>
-          <TitleBlock>
-            <H2>{data.impactTitle}</H2>
-            <Body>{data.impactSubtitle}</Body>
-          </TitleBlock>
-          <CTA href={data.impactCtaHref}>{data.impactCtaLabel}</CTA>
-        </TopRow>
+        <Reveal>
+          <TopRow>
+            <TitleBlock>
+              <H2>{data.impactTitle}</H2>
+              <Body>{data.impactSubtitle}</Body>
+            </TitleBlock>
+            <CTA href={data.impactCtaHref}>{data.impactCtaLabel}</CTA>
+          </TopRow>
+        </Reveal>
         <Stats>
           {data.impactStats?.map((s, i) => (
-            <Stat key={s.value + i}>
+            <Stat key={s.value + i} $i={i}>
               <CountUp value={s.value} />
               <Sub>{s.label}</Sub>
             </Stat>

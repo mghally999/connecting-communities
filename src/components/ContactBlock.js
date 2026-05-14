@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import styled from "styled-components";
 import { Container, H2 } from "@/components/primitives";
 import CTA from "@/components/CTA";
+import Reveal from "@/components/Reveal";
 
 const Wrap = styled.section`
   background: ${({ theme }) => theme.colors.skyBlue};
@@ -90,7 +91,9 @@ export default function ContactBlock({ title = "Contact", ctaLabel = "LEARN MORE
   return (
     <Wrap>
       <Container>
-        <Title>{title}</Title>
+        <Reveal>
+          <Title>{title}</Title>
+        </Reveal>
         <Form onSubmit={onSubmit} noValidate>
           <Input
             name="name"

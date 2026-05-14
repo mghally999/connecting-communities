@@ -51,8 +51,16 @@ const Slide = styled.div`
   aspect-ratio: 16 / 11;
   overflow: hidden;
   background: ${({ theme }) => theme.colors.skyBlueLight};
-  transition: transform ${({ theme }) => theme.transitions.base};
-  &:hover { transform: translateY(-3px); }
+  transition:
+    transform 420ms cubic-bezier(.22,1,.36,1),
+    box-shadow 420ms cubic-bezier(.22,1,.36,1);
+  box-shadow: 0 1px 6px rgba(11,16,24,0.04);
+  & > * { transition: transform 620ms cubic-bezier(.22,1,.36,1); }
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 36px rgba(11,16,24,0.14);
+  }
+  &:hover > * { transform: scale(1.06); }
   @media (max-width: 1024px) { flex-basis: calc((100% - 1.25rem) / 2); }
   @media (max-width: 640px)  { flex-basis: 86%; }
 `;

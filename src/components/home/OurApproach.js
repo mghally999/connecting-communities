@@ -74,7 +74,9 @@ const ImgWrap = styled.div`
     inset: 0;
     overflow: hidden;
     background: ${({ theme }) => theme.colors.skyBlueLight};
+    & > * { transition: transform 720ms cubic-bezier(.22,1,.36,1); }
   }
+  &:hover .img-clip > * { transform: scale(1.05); }
 `;
 
 const Pin = styled.span`

@@ -8,9 +8,11 @@ import styled, { css } from "styled-components";
 import Logo from "./Logo";
 
 /**
- * Sticky header. The white background fades from fully opaque (1.0)
- * down to ~0.78 as the user scrolls past the first 200px, giving the
- * impression that the page content shows softly through.
+ * Sticky header. The navy backdrop has a slight blur and a subtle
+ * underline shadow once the user scrolls past the first 12 px. Alpha
+ * is fixed; the previous fade-to-translucent behaviour was dropped
+ * because Hana asked for a more solid/darker navigation that reads
+ * the same against every page background.
  */
 const Bar = styled.header`
   position: fixed;
@@ -19,14 +21,14 @@ const Bar = styled.header`
   height: ${({ theme }) => theme.layout.headerHeight};
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, ${({ $alpha }) => $alpha});
-  backdrop-filter: blur(${({ $alpha }) => ($alpha < 0.95 ? "10px" : "0")});
-  -webkit-backdrop-filter: blur(${({ $alpha }) => ($alpha < 0.95 ? "10px" : "0")});
+  background: rgba(33, 56, 79, ${({ $alpha }) => $alpha});
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   transition: background 240ms ease, box-shadow 240ms ease;
   ${({ $scrolled, theme }) =>
     $scrolled &&
     css`
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
     `}
   @media (max-width: 768px) {
     height: 72px;
@@ -62,7 +64,7 @@ const NavItem = styled(Link)`
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 1rem;
   font-weight: ${({ theme }) => theme.fontWeights.regular};
-  color: ${({ theme }) => theme.colors.navy};
+  color: rgba(255, 255, 255, 0.92);
   padding: 0.4rem 0;
   white-space: nowrap;
   transition: color ${({ theme }) => theme.transitions.fast};
@@ -84,16 +86,16 @@ const MobileBtn = styled.button`
   width: 44px;
   height: 44px;
   border-radius: 8px;
-  border: 1px solid ${({ theme }) => theme.colors.greyBg};
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: transparent;
-  color: ${({ theme }) => theme.colors.navy};
+  color: ${({ theme }) => theme.colors.white};
   @media (min-width: 1025px) { display: none; }
 `;
 
 const MobileSheet = styled.div`
   position: fixed;
   inset: 72px 0 0 0;
-  background: ${({ theme }) => theme.colors.white};
+  background: ${({ theme }) => theme.colors.navy};
   z-index: ${({ theme }) => theme.zIndex.sticky};
   padding: 2rem 1.5rem;
   display: flex;
@@ -107,8 +109,8 @@ const MobileSheet = styled.div`
 const MobileItem = styled(Link)`
   font-size: 1.5rem;
   font-family: ${({ theme }) => theme.fonts.body};
-  color: ${({ theme }) => theme.colors.navy};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.greyBg};
+  color: ${({ theme }) => theme.colors.white};
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   padding-bottom: 0.6rem;
   &:hover { color: ${({ theme }) => theme.colors.orange}; }
 `;
@@ -123,8 +125,8 @@ function Header({ navLinks }) {
     const onScroll = () => {
       const y = window.scrollY;
       setScrolled(y > 12);
-      // fade from 1 → 0.78 over the first 250px
-      const a = Math.max(0.78, 1 - y / 1200);
+      // subtle solidifying: 0.88 at top → 1.0 once scrolled
+      const a = Math.min(1, 0.88 + y / 600);
       setAlpha(a);
     };
     onScroll();
@@ -137,7 +139,10 @@ function Header({ navLinks }) {
   const isActive = useCallback(
     (href) => {
       if (href === "/") return pathname === "/";
-      return pathname.startsWith(href);
+      /* Exact match, or a true sub-path (with trailing slash) — never
+       * a prefix match, otherwise /our-model would also light up the
+       * /our-model-2 link and vice versa. */
+      return pathname === href || pathname.startsWith(href + "/");
     },
     [pathname]
   );
@@ -146,7 +151,7 @@ function Header({ navLinks }) {
     <>
       <Bar $scrolled={scrolled} $alpha={alpha}>
         <Inner>
-          <Link href="/" aria-label="Home"><Logo /></Link>
+          <Link href="/" aria-label="Home"><Logo variant="light" /></Link>
 
           <Nav>
             {navLinks.map((l) => (

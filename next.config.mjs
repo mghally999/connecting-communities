@@ -6,6 +6,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  distDir: process.env.CC_NEXT_DIST || ".next",
+  // Allow building when the default .next is locked (root-owned in dev).
+  // The CC_NEXT_DIST env var lets us redirect to a writable location.
   compiler: {
     styledComponents: {
       ssr: true,
@@ -22,6 +25,42 @@ const nextConfig = {
     root: __dirname,
   },
   outputFileTracingRoot: __dirname,
+  compress: true,
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
+  /* Heavy static assets (the 14 MB building GLB, fonts, textures)
+   * never change after build, so we let any intermediate CDN/proxy
+   * cache them aggressively. Saves the round-trip on repeat visits and
+   * is essential for the walkthrough to start fast on the first paint. */
+  async headers() {
+    return [
+      {
+        source: "/models/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          { key: "Content-Type", value: "model/gltf-binary" },
+        ],
+      },
+      {
+        source: "/fonts/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        source: "/images/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        source: "/logo/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

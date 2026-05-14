@@ -78,6 +78,18 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={stolzl.variable}>
+      <head>
+        {/* Hint the browser to start fetching the heavy hubsite GLB
+         * during initial parse so it lands by the time the user
+         * scrolls into the walkthrough section. */}
+        <link
+          rel="preload"
+          as="fetch"
+          href="/models/building.glb"
+          type="model/gltf-binary"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body
         style={{
           margin: 0,

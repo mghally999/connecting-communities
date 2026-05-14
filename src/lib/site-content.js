@@ -12,6 +12,8 @@ export const siteSettings = {
     { label: "Home", href: "/" },
     { label: "About", href: "/about" },
     { label: "Our Model", href: "/our-model" },
+    { label: "Our Model 2", href: "/our-model-2" },
+    { label: "Our Model 3", href: "/our-model-3" },
     { label: "Ecosystem in Action", href: "/ecosystem" },
     { label: "Contact", href: "/contact" },
   ],
@@ -38,7 +40,7 @@ export const siteSettings = {
 };
 
 export const homeContent = {
-  heroTitle: "Connection is only\nthe beginning.",
+  heroTitle: "Connection is only\nthe beginning",
   heroBody: "Together, we build access, opportunity,\nand futures that thrive",
   heroCtaLabel: "LEARN MORE",
   heroCtaHref: "/about",
@@ -193,7 +195,7 @@ export const aboutContent = {
     'AKA is the strategic architect behind the Connecting Communities (CC) ecosystem. Founded by experts in emerging markets, we build ventures that combine innovative technology with grounded business models to drive sustainable social and economic growth.\n\nAs the visionary force behind CC, AKA coordinates a "last-mile" ecosystem of essential services - including finance, agriculture, and tele-conferencing. By scaling critical enablers like TrAC, we ensure that reliable connectivity serves as the digital backbone for this entire network. At AKA, we design the infrastructure of opportunity, empowering communities to reach their full potential.',
   akaCtaLabel: "LEARN MORE",
   akaCtaHref: "https://aka-partners.com/",
-  akaLogo: "/logo/aka-logo.svg",
+  akaLogo: "/logo/aka-logo-tagline.svg",
 
   leadersTitle: "Our leaders",
   leaders: [
