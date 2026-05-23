@@ -1,0 +1,23 @@
+node_modules
+.DS_Store
+
+# Build output
+.next
+out
+tmp
+build
+dist
+
+# Bundle-analyzer reports
+**/analyze/*.html
+
+# Local archives (Browsertrix WACZ captures of foam.org)
+Foam/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode
+.idea
