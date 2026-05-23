@@ -1,0 +1,520 @@
+/*
+ * Foam Talent 2024 — route-scoped styles
+ *
+ * Loaded only from /talent and /talent/[slug]. Uses the global Stolzl font
+ * variable already set on <html>. Custom properties drive the dynamic
+ * accent colour so GSAP can tween `--accent` and `--bg` on hover.
+ */
+
+:root,
+.talent-root {
+  --talent-bg: #0b0b0b;
+  --talent-fg: #ffffff;
+  --talent-accent: #f26da9;
+  --talent-accent-text: #ffffff;
+}
+
+.talent-root {
+  background: var(--talent-bg);
+  color: var(--talent-fg);
+  min-height: 100vh;
+  font-family: var(--font-stolzl), -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Prevent the body's smooth-scroll from fighting our pinned intro. The
+   * route's own ScrollTrigger/Lenis instances drive scroll feel here. */
+  scroll-behavior: auto;
+  overflow-x: hidden;
+}
+
+.talent-root *,
+.talent-root *::before,
+.talent-root *::after {
+  box-sizing: border-box;
+}
+
+/* Selection inside the dark exhibition should keep using the accent colour. */
+.talent-root ::selection {
+  background: var(--talent-accent);
+  color: var(--talent-accent-text);
+}
+
+/* ---------- IntroTypography ---------- */
+
+.intro-stage {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.intro-fixed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.intro-foam {
+  position: absolute;
+  top: 7vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: #fff;
+  will-change: transform, opacity;
+}
+
+.intro-talent {
+  width: clamp(280px, 64vw, 1100px);
+  height: clamp(70px, 12vw, 220px);
+  display: block;
+}
+
+.intro-tagline {
+  margin-top: 28px;
+  font-size: clamp(14px, 1.25vw, 19px);
+  line-height: 1.45;
+  max-width: 22ch;
+  color: #fff;
+  font-weight: 400;
+}
+
+.intro-tagline .tag-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(8px);
+  margin-right: 0.32em;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.intro-tagline .tag-word.is-on {
+  color: #fff;
+}
+
+.intro-chevron {
+  position: absolute;
+  bottom: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  opacity: 0.6;
+  animation: introBob 2.2s ease-in-out infinite;
+}
+
+@keyframes introBob {
+  0%, 100% { transform: translate(-50%, 0); }
+  50%      { transform: translate(-50%, 8px); }
+}
+
+.intro-heroes {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #0b0b0b;
+}
+
+.intro-heroes img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.04);
+  will-change: opacity, transform;
+}
+
+.intro-text-layer {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+}
+
+.intro-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.45) 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ---------- FoamSidebar ---------- */
+
+.foam-sidebar {
+  position: fixed;
+  top: 32px;
+  left: 32px;
+  z-index: 60;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--talent-fg);
+  mix-blend-mode: difference;
+  transform-origin: 0% 0%;
+  pointer-events: auto;
+  will-change: transform, opacity;
+}
+
+.foam-sidebar a { display: inline-block; }
+
+/* ---------- GalleryBoard ---------- */
+
+.gallery-stage {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--talent-bg);
+  cursor: grab;
+  transition: background 480ms cubic-bezier(0.22, 1, 0.36, 1);
+  touch-action: none;
+}
+
+.gallery-stage.is-dragging { cursor: grabbing; }
+
+.gallery-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+
+.tcard {
+  position: absolute;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  transform-origin: center center;
+  will-change: transform, opacity, filter;
+  transition: filter 360ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tcard:focus-visible {
+  outline: 2px solid var(--talent-accent);
+  outline-offset: 6px;
+}
+
+.tcard-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.tcard-pill {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0b0b0b;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tcard.is-hover { transform: scale(1.06); }
+.tcard.is-hover .tcard-pill { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.tcard.is-dimmed { opacity: 0.45; filter: saturate(0.65); }
+
+/* Caption that appears bottom-centre when a card is hovered */
+.gallery-caption {
+  position: fixed;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  z-index: 40;
+  text-align: center;
+  color: var(--talent-accent-text);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 280ms ease;
+}
+
+.gallery-caption.is-on { opacity: 1; }
+
+.gallery-caption .gc-title {
+  display: block;
+  font-size: clamp(20px, 2.2vw, 32px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.gallery-caption .gc-artist {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* ---------- CategoryChips ---------- */
+
+.chips {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 56vw;
+  justify-content: flex-end;
+}
+
+.chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: transparent;
+  color: var(--talent-accent-text);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: background 220ms ease, color 220ms ease, border-color 220ms ease;
+}
+
+.chip:hover { border-color: var(--talent-accent-text); }
+.chip.is-on { background: var(--talent-accent-text); color: var(--talent-bg); border-color: var(--talent-accent-text); }
+.chip.i-chip { font-style: italic; min-width: 36px; }
+
+/* ---------- DiveTransition ---------- */
+
+.dive-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.dive-overlay .dive-bg { position: absolute; inset: 0; background: var(--dive-bg, #0b0b0b); }
+.dive-overlay .dive-card {
+  position: absolute;
+  background-size: cover;
+  background-position: center;
+  will-change: transform, opacity, filter;
+}
+
+.dive-noise {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  opacity: 0;
+  background-image:
+    radial-gradient(rgba(255,255,255,0.18) 0.5px, transparent 1px),
+    radial-gradient(rgba(255,255,255,0.10) 0.5px, transparent 1.2px);
+  background-size: 3px 3px, 7px 7px;
+  background-position: 0 0, 1px 2px;
+  filter: contrast(1.8);
+}
+
+/* ---------- Portfolio: HorizontalPager ---------- */
+
+.portfolio-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--talent-accent, #efe9b8);
+  color: var(--talent-accent-text, #1a1a1a);
+}
+
+.portfolio-track {
+  display: flex;
+  height: 100%;
+  will-change: transform;
+}
+
+.spread {
+  position: relative;
+  flex: 0 0 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.spread-element {
+  position: absolute;
+}
+
+.spread-image {
+  background-size: cover;
+  background-position: center;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: zoom-in;
+}
+
+.spread-image:hover { transform: scale(1.04); }
+
+.spread-title {
+  font-size: clamp(28px, 3.4vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+.spread-title small {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.42em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.spread-body {
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 38ch;
+}
+
+.spread-body .ar {
+  margin-top: 14px;
+  direction: rtl;
+  font-size: 18px;
+}
+
+.spread-quote {
+  font-size: clamp(28px, 3vw, 52px);
+  line-height: 1.2;
+  font-style: italic;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+/* ---------- AudioRing ---------- */
+
+.audio-ring {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+
+.audio-ring svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.audio-ring .ring-track { stroke: currentColor; fill: none; opacity: 0.35; }
+.audio-ring .ring-progress {
+  stroke: currentColor;
+  fill: none;
+  transition: stroke-dashoffset 80ms linear;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.audio-ring .ring-cap {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---------- ThankYou ---------- */
+
+.thanks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  background: #fff;
+  color: #0b0b0b;
+  text-align: center;
+  padding: 0 6vw;
+}
+
+.thanks h1 {
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(48px, 9vw, 160px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.thanks .thanks-next {
+  margin-top: 32px;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.thanks .thanks-cta {
+  margin-top: 18px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 280ms ease, color 280ms ease, border-color 280ms ease;
+}
+
+.thanks .thanks-cta:hover {
+  background: var(--next-accent, #efe9b8);
+  border-color: var(--next-accent, #efe9b8);
+  color: var(--next-accent-text, #1a1a1a);
+}
+
+/* The site-wide scroll-behavior: smooth conflicts with our hand-rolled
+ * pin + ScrollTrigger pacing on the intro section. Turn it off when the
+ * talent root is mounted (it's mounted by both /talent and /talent/<slug>). */
+body:has(.talent-root) {
+  scroll-behavior: auto !important;
+}
+
+body:has(.talent-root) main {
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-tagline .tag-word { opacity: 1; transform: none; color: #fff; }
+  .gallery-stage { transition: none; }
+  .intro-heroes img { transform: none; }
+  .audio-ring .ring-progress { transition: none; }
+}
+
+/* ---------- Mobile fallbacks ---------- */
+
+@media (max-width: 768px) {
+  .chips { max-width: 88vw; }
+  .gallery-caption { bottom: 24px; }
+  .foam-sidebar { top: 20px; left: 20px; font-size: 18px; }
+  .spread-title { font-size: clamp(26px, 7vw, 48px); }
+}
