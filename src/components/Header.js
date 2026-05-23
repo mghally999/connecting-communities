@@ -121,6 +121,12 @@ function Header({ navLinks }) {
   const [alpha, setAlpha] = useState(1);
   const [open, setOpen] = useState(false);
 
+  /* The /talent experience is a self-contained world (its own brand,
+   * its own foam wordmark, its own colour shifts). Bail out before
+   * rendering so neither the Bar nor the 92-px spacer ends up in the
+   * DOM there. */
+  if (pathname === "/talent" || pathname?.startsWith("/talent/")) return null;
+
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
