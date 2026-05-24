@@ -22,6 +22,7 @@
 
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
 import TalentMarkSVG from "./TalentMarkSVG";
 
 const TAGLINE = ["artists", "shaping", "the", "future", "of", "photography"];
@@ -30,6 +31,66 @@ export default function Intro({ phase, heroArtist }) {
   const showHero = phase === "intro" || phase === "hero-zoom";
   return (
     <>
+      {/* Full-bleed background hero photo + dark overlay — visible
+       *  from t=0. Photo and overlay are SEPARATE absolutely-positioned
+       *  siblings (z=1 for photo, z=2 for overlay) so the overlay sits
+       *  between the photo and the wordmark group (z>=25) in stacking
+       *  order without coupling to the photo's fade-in.
+       *
+       *  Both fade together: opacity 1 during 'intro' (600ms fade-in
+       *  from t=0), opacity 0 once phase flips to 'hero-zoom' (400ms
+       *  fade-out) — so the layoutId hero card can take over without
+       *  competing. */}
+      {heroArtist?.hero && (
+        <>
+          <motion.div
+            key="intro-bg-hero-photo"
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: phase === "intro" ? 1 : 0 }}
+            transition={
+              phase === "intro"
+                ? { duration: 0.6, ease: "easeOut" }
+                : { duration: 0.4, ease: "easeOut" }
+            }
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+          >
+            <Image
+              src={heroArtist.hero}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              style={{ objectFit: "cover" }}
+            />
+          </motion.div>
+
+          <motion.div
+            key="intro-bg-hero-overlay"
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: phase === "intro" ? 1 : 0 }}
+            transition={
+              phase === "intro"
+                ? { duration: 0.6, ease: "easeOut" }
+                : { duration: 0.4, ease: "easeOut" }
+            }
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 2,
+              background: "rgba(0, 0, 0, 0.55)",
+              pointerEvents: "none",
+            }}
+          />
+        </>
+      )}
+
       {/* TALENT mark — pattern fill.
        *  Outer div owns the centering transform; inner motion.div owns
        *  the entrance animation. Don't merge the two — framer-motion
