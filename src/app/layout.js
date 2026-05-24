@@ -77,7 +77,13 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={stolzl.variable}>
+    /* suppressHydrationWarning: a class browser extensions commonly
+     * inject (Dark Reader adds `dark`, ColorZilla touches `style`, etc.)
+     * mutate the <html> tag BEFORE React hydrates. Without this flag,
+     * Next throws a hydration mismatch on every page load for users
+     * with those extensions installed. The warning is purely cosmetic —
+     * the extension's class is reapplied immediately after hydration. */
+    <html lang="en" className={stolzl.variable} suppressHydrationWarning>
       <head>
         {/* Hint the browser to start fetching the heavy hubsite GLB
          * during initial parse so it lands by the time the user
