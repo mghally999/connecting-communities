@@ -24,17 +24,41 @@
 import React, { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
+/**
+ * Project an artist's authored 3D (x, y, z) coordinate into 2D viewport space.
+ *
+ * Bug 5: previous formula gave a 0.45→1.2 scale range (≈2.7x ratio).
+ * The foam.org reference (interactions/index_canvas0.png) shows a
+ * much wider dynamic range — tiny thumbnails ~3vw next to a hero ~25vw
+ * (~8x ratio). Widened scale + tilted rotation so the constellation
+ * reads as scattered rather than uniformly clustered.
+ *
+ * Authored ranges in talent-artists.js:
+ *   x ∈ [-13, 15.5]   y ∈ [-8, 8.5]   z ∈ [-20, 0]
+ * Projected:
+ *   leftPct = 50 + x*3.2  → ~9% .. ~100% (full viewport)
+ *   topPct  = 50 + y*4.6  → ~13% .. ~89%
+ *   scale = 0.28 .. 1.15  (closer z = bigger)
+ *   rot   = ±2.4° hashed off the slug
+ */
 const PROJ = (artist) => {
   const x = parseFloat(artist.pos3?.x ?? 0);
   const y = parseFloat(artist.pos3?.y ?? 0);
   const z = parseFloat(artist.pos3?.z ?? 0);
-  const leftPct = 50 + x * 2.8;
-  const topPct  = 50 + y * 4.0;
-  const scale   = Math.max(0.45, Math.min(1.2, 1.0 + z * 0.025));
-  return { leftPct, topPct, scale };
+  const leftPct = 50 + x * 3.2;
+  const topPct  = 50 + y * 4.6;
+  // z maps -20..0 → 0.28..1.15 (linear)
+  const t = Math.max(0, Math.min(1, (z + 20) / 20));
+  const scale = 0.28 + t * 0.87;
+  // stable per-slug rotation: hash slug chars to ±2.4°
+  const slug = artist.slug || "";
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
+  const rot = ((h % 100) / 100 - 0.5) * 4.8;
+  return { leftPct, topPct, scale, rot };
 };
 
-const CARD_W_VW = 12; // base card width in vw — primary card is bigger via scale
+const CARD_W_VW = 14; // base card width in vw — primary card is bigger via scale
 
 export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick }) {
   // Lock body scroll while the gallery is mounted; thumbnails are positioned
@@ -57,12 +81,12 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     >
       {artists.map((a, i) => {
         if (!a.hero) return null;
-        const { leftPct, topPct, scale } = PROJ(a);
+        const { leftPct, topPct, scale, rot } = PROJ(a);
         const isHovered = hoveredSlug === a.slug;
         const isDimmed  = hoveredSlug && !isHovered;
         const isPrimary = !!a.isPrimary;
 
-        const cardWidth = `${CARD_W_VW * scale * (isPrimary ? 1.6 : 1)}vw`;
+        const cardWidth = `${CARD_W_VW * scale * (isPrimary ? 1.8 : 1)}vw`;
         return (
           <motion.button
             key={a.slug}
@@ -74,15 +98,17 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
             initial={
               isPrimary
                 ? false  // primary card is morphed in by layoutId, skip initial
-                : { opacity: 0, scale: 0.85 }
+                : { opacity: 0, scale: 0.85, rotate: 0 }
             }
             animate={{
               opacity: isDimmed ? 0.25 : 1,
               scale: isHovered ? 1.08 : 1,
+              rotate: rot,
             }}
             transition={{
               opacity: { duration: isDimmed ? 0.3 : 0.4, ease: "easeOut" },
               scale: { duration: 0.3, ease: [0.22, 1, 0.36, 1] },
+              rotate: { duration: 0.7, ease: "easeOut" },
               layout: { duration: 1.2, ease: [0.65, 0, 0.35, 1] },
               delay: isPrimary ? 0 : 0.05 * (i % 8),
             }}
@@ -90,7 +116,11 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
               position: "absolute",
               left: `${leftPct}%`,
               top: `${topPct}%`,
-              transform: "translate(-50%, -50%)",
+              // No `transform: translate(-50%, -50%)` here — framer-motion would
+              // overwrite it when animating scale/rotate. We use x/y as motion
+              // values instead, which framer-motion composes into its matrix.
+              x: "-50%",
+              y: "-50%",
               width: cardWidth,
               aspectRatio: "4 / 3",
               padding: 0,
