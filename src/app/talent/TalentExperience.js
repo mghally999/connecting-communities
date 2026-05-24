@@ -1,16 +1,20 @@
 "use client";
 
 /**
- * TalentExperience — client-side composition for the /talent route.
+ * TalentExperience — client shell for /talent.
  *
- * Owns the cross-scene state:
- *  - which "scene" is visible (intro vs gallery)
- *  - the dive overlay imperative ref
- *  - the FoamSidebar's animated state
+ * Sequence:
+ *  1. IntroTypography pins to the viewport. As the visitor scrolls,
+ *     three hero images crossfade beneath the TALENT wordmark.
+ *  2. At ~95% scroll the intro plays its exit animation and fires
+ *     onExitComplete. We swap scene → 'gallery'.
+ *  3. GalleryScene takes over: a full 3D R3F gallery of artist frames
+ *     positioned at the (x, y, z) coordinates Foam authored.
+ *  4. Clicking a frame triggers DiveTransition then routes to
+ *     /talent/<slug>.
  *
- * Per FOAM_TALENT_SPEC.md §2.2 the intro section is 300vh and emits
- * `onExitComplete` once its exit animation finishes — that's our cue to
- * swap from "intro" to "gallery" state and let GalleryBoard take over.
+ * FoamSidebar persists across all scenes (intro -> gallery -> portfolio)
+ * and animates its rotation between states.
  */
 
 import React, { useRef, useState } from "react";
@@ -22,9 +26,8 @@ import IntroTypography from "@/components/talent/IntroTypography";
 import FoamSidebar from "@/components/talent/FoamSidebar";
 import "@/styles/talent.css";
 
-// Heavy components are dynamic so the intro scene ships first.
-const GalleryBoard = dynamic(
-  () => import("@/components/talent/GalleryBoard"),
+const GalleryScene = dynamic(
+  () => import("@/components/talent/GalleryScene"),
   { ssr: false }
 );
 const DiveTransition = dynamic(
@@ -32,14 +35,24 @@ const DiveTransition = dynamic(
   { ssr: false }
 );
 
-const HEROES = ARTISTS.slice(0, 3).map((a) => a.hero);
+// First three artists (with hero images) drive the intro crossfade.
+const HEROES = ARTISTS.filter((a) => a.hero).slice(0, 3).map((a) => a.hero);
 
 export default function TalentExperience() {
   const router = useRouter();
   const [scene, setScene] = useState("intro"); // 'intro' | 'gallery'
   const diveRef = useRef(null);
 
-  const handleDive = (artist, rect) => {
+  const handleDive = (artist) => {
+    // In the 3D scene we don't have a clickable card rect, so the dive
+    // opens from screen-centre. The transition still hides the route
+    // change behind a colour flood.
+    const rect = {
+      left: window.innerWidth / 2 - 200,
+      top: window.innerHeight / 2 - 150,
+      width: 400,
+      height: 300,
+    };
     if (!diveRef.current) {
       router.push(`/talent/${artist.slug}`);
       return;
@@ -60,7 +73,7 @@ export default function TalentExperience() {
         onExitComplete={() => setScene("gallery")}
       />
 
-      <GalleryBoard artists={ARTISTS} onDive={handleDive} />
+      <GalleryScene onDive={handleDive} />
 
       <DiveTransition ref={diveRef} />
     </div>

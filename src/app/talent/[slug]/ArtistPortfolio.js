@@ -4,27 +4,21 @@
  * ArtistPortfolio — client shell for /talent/[slug].
  *
  * Owns the per-artist accent (so it can tween between artists via the
- * `--talent-accent` CSS variable) and renders the HorizontalPager full
- * of Spread elements plus the closing ThankYou.
+ * --talent-accent CSS variable) and renders the VerticalPortfolio plus
+ * the back-to-gallery affordance and FoamSidebar.
  */
 
 import React, { useEffect } from "react";
 import Link from "next/link";
 import { gsap } from "gsap";
 import FoamSidebar from "@/components/talent/FoamSidebar";
-import HorizontalPager from "@/components/talent/HorizontalPager";
-import Spread from "@/components/talent/spreads/Spread";
-import ThankYou from "@/components/talent/spreads/ThankYou";
+import VerticalPortfolio from "@/components/talent/VerticalPortfolio";
 import "@/styles/talent.css";
 
 export default function ArtistPortfolio({ artist, next }) {
-  // Tween the document-level accent CSS variable when the artist changes,
-  // so navigating from one portfolio to another feels like a single
-  // continuous experience rather than a hard page swap.
   useEffect(() => {
     if (typeof document === "undefined") return;
-    const root = document.documentElement;
-    gsap.to(root, {
+    gsap.to(document.documentElement, {
       "--talent-accent": artist.accent,
       "--talent-accent-text": artist.accentText,
       duration: 0.7,
@@ -44,7 +38,6 @@ export default function ArtistPortfolio({ artist, next }) {
     >
       <FoamSidebar state="portfolio" />
 
-      {/* Back affordance — top-left under the foam mark */}
       <Link
         href="/talent"
         aria-label="Back to gallery"
@@ -53,22 +46,67 @@ export default function ArtistPortfolio({ artist, next }) {
           top: 32,
           left: 96,
           zIndex: 60,
-          fontSize: 14,
-          letterSpacing: "0.12em",
+          fontSize: 13,
+          letterSpacing: "0.16em",
           textTransform: "uppercase",
           color: artist.accentText,
-          opacity: 0.7,
+          opacity: 0.75,
         }}
       >
         ← gallery
       </Link>
 
-      <HorizontalPager accent={artist.accent} accentText={artist.accentText}>
-        {(artist.spreads || []).map((sp, i) => (
-          <Spread key={i} data={sp} />
-        ))}
-        <ThankYou next={next} />
-      </HorizontalPager>
+      <VerticalPortfolio artist={artist} />
+
+      {next && (
+        <section
+          className="next-artist"
+          style={{
+            background: "#fff",
+            color: "#0b0b0b",
+            padding: "16vh 8vw",
+            textAlign: "center",
+          }}
+        >
+          <p
+            style={{
+              fontSize: 13,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              opacity: 0.6,
+            }}
+          >
+            next exhibition
+          </p>
+          <h2
+            style={{
+              marginTop: "0.5em",
+              fontSize: "clamp(36px, 6vw, 88px)",
+              lineHeight: 1.05,
+              letterSpacing: "-0.02em",
+              fontWeight: 500,
+            }}
+          >
+            {next.exhibition || next.name}
+          </h2>
+          <p style={{ marginTop: "0.6em", fontSize: 16, opacity: 0.75 }}>{next.name}</p>
+          <Link
+            href={`/talent/${next.slug}`}
+            style={{
+              display: "inline-block",
+              marginTop: "2.2em",
+              padding: "12px 22px",
+              borderRadius: 999,
+              border: "1px solid currentColor",
+              fontSize: 13,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+            }}
+          >
+            view exhibition →
+          </Link>
+        </section>
+      )}
     </div>
   );
 }
