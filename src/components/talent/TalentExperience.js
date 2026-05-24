@@ -56,13 +56,23 @@ export default function TalentExperience({ initialSlug = null }) {
   const [hoveredSlug, setHovered] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null);
 
-  /* ---------- entry timeline (intro → hero-zoom → gallery) ---------- */
+  /* ---------- entry timeline (intro → hero-zoom → gallery) ----------
+   * Per-phase scheduling. The previous version queued both timers in a
+   * single effect with [phase] as a dep: when t1 fired and flipped to
+   * 'hero-zoom', the effect re-ran and the cleanup cancelled t2, so we
+   * never advanced to 'gallery'. Splitting one timer per phase lets the
+   * effect re-run cleanly: 'intro' schedules → 'hero-zoom', then
+   * 'hero-zoom' schedules → 'gallery'. */
 
   useEffect(() => {
-    if (phase !== "intro") return;
-    const t1 = setTimeout(() => setPhase("hero-zoom"), 100);   // schedule next
-    const t2 = setTimeout(() => setPhase("gallery"), 2400);    // hero settles
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    if (phase === "intro") {
+      const t = setTimeout(() => setPhase("hero-zoom"), 100);
+      return () => clearTimeout(t);
+    }
+    if (phase === "hero-zoom") {
+      const t = setTimeout(() => setPhase("gallery"), 2300);
+      return () => clearTimeout(t);
+    }
   }, [phase]);
 
   /* ---------- history.pushState / popstate ---------- */
