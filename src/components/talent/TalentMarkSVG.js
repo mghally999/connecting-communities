@@ -1,25 +1,25 @@
 "use client";
 
 /**
- * The TALENT wordmark with an op-art fill clipped to the letterforms.
+ * TALENT wordmark with op-art pattern fill.
  *
- * Per FOAM_TALENT_SPEC.md §2.1 the fill is split:
- *   - Top half:    8-px checker
- *   - Bottom half: 8-px vertical stripes
- * Split point sits at the x-height of the letters. `patternTransform`
- * drifts horizontally over a 9 s loop, producing the subtle motion
- * visible in the reference capture. A faint blurred duplicate of the
- * letters lives behind, offset by (-3px, +4px), to mimic the paper
- * cut-out depth.
+ * Visual oracle: foam-mega/site/screenshots/index_y0.png — letterforms
+ * filled with a tight checker/stripe pattern (high-contrast black/white,
+ * 8 px tiles) and outlined by a 1 px white stroke. Earlier revision
+ * applied the pattern via a clipped rect; some browsers wouldn't resolve
+ * the clip-path-via-use chain when the source <text> lived inside
+ * <defs>, leaving us with the bare outline. Painting the pattern fill
+ * directly on the visible <text> element fixes that.
  *
- * The SVG is purely visual; the readable text for accessibility is
- * provided by the parent <h1 aria-label="TALENT">.
+ * The split (checker top half + vertical stripes bottom half) is kept
+ * for parity with the live foam.org mark, which reads as part-checker
+ * part-stripe at intermediate zoom levels.
  */
 
 import React from "react";
 
 const TalentMarkSVG = React.forwardRef(function TalentMarkSVG(
-  { className = "", patternClassName = "pattern-fill" },
+  { className = "" },
   ref
 ) {
   return (
@@ -33,8 +33,7 @@ const TalentMarkSVG = React.forwardRef(function TalentMarkSVG(
       focusable="false"
     >
       <defs>
-        {/* Two-tile pattern: rendered into a 16x16 cell so the checker
-         * reads at any zoom. The dark squares share the page background. */}
+        {/* 16-px checker tile — high contrast for the op-art effect */}
         <pattern
           id="talent-checker"
           width="16"
@@ -42,10 +41,11 @@ const TalentMarkSVG = React.forwardRef(function TalentMarkSVG(
           patternUnits="userSpaceOnUse"
         >
           <rect width="16" height="16" fill="#ffffff" />
-          <rect x="0" y="0" width="8" height="8" fill="#0b0b0b" />
-          <rect x="8" y="8" width="8" height="8" fill="#0b0b0b" />
+          <rect x="0" y="0" width="8" height="8" fill="#000000" />
+          <rect x="8" y="8" width="8" height="8" fill="#000000" />
         </pattern>
 
+        {/* 16-px vertical-stripe tile */}
         <pattern
           id="talent-stripes"
           width="16"
@@ -53,59 +53,57 @@ const TalentMarkSVG = React.forwardRef(function TalentMarkSVG(
           patternUnits="userSpaceOnUse"
         >
           <rect width="16" height="16" fill="#ffffff" />
-          <rect x="0" y="0" width="8" height="16" fill="#0b0b0b" />
+          <rect x="0" y="0" width="8" height="16" fill="#000000" />
         </pattern>
 
-        {/* Compose the two patterns vertically inside another pattern so the
-         * checker covers the top half of the letterforms, stripes the
-         * bottom half. 220 tall matches the viewBox height. */}
+        {/* Composite pattern: checker on top half of the viewBox, stripes
+         * on the bottom half. The split sits roughly at the x-height of
+         * the glyphs at this font size. */}
         <pattern
-          id="talent-fill"
-          className={patternClassName}
+          id="talent-pattern"
           width="1200"
           height="220"
           patternUnits="userSpaceOnUse"
         >
-          <rect x="0" y="0"   width="1200" height="120" fill="url(#talent-checker)" />
-          <rect x="0" y="120" width="1200" height="100" fill="url(#talent-stripes)" />
+          <rect x="0" y="0"   width="1200" height="110" fill="url(#talent-checker)" />
+          <rect x="0" y="110" width="1200" height="110" fill="url(#talent-stripes)" />
         </pattern>
-
-        {/* Master text path used both as the clip and as the visible glyph */}
-        <g id="talent-glyphs">
-          <text
-            x="50%"
-            y="55%"
-            dominantBaseline="middle"
-            textAnchor="middle"
-            fontFamily="var(--font-stolzl), Helvetica, Arial, sans-serif"
-            fontWeight="700"
-            fontSize="220"
-            letterSpacing="-6"
-          >
-            TALENT
-          </text>
-        </g>
-
-        <clipPath id="talent-clip">
-          <use href="#talent-glyphs" />
-        </clipPath>
       </defs>
 
-      {/* Soft drop shadow ghost behind the letters */}
-      <g transform="translate(-3 4)" opacity="0.55" filter="url(#blur)">
-        <use href="#talent-glyphs" fill="#1a1a1a" />
-      </g>
-      <filter id="blur">
-        <feGaussianBlur stdDeviation="2.4" />
-      </filter>
-
-      {/* The op-art fill, clipped to the letterforms */}
-      <g clipPath="url(#talent-clip)">
-        <rect width="1200" height="220" fill="url(#talent-fill)" />
-      </g>
-
-      {/* Crisp 1-px outline so the wordmark still reads on busy backgrounds */}
-      <use href="#talent-glyphs" fill="none" stroke="#ffffff" strokeWidth="1.2" />
+      {/* The wordmark itself — pattern as fill, 1-px white outline.
+       * Rendering twice (filled, then stroked) is required because most
+       * browsers paint stroke OVER fill on a single element, which would
+       * thicken the dark pattern bars at the glyph edges. Two separate
+       * passes keep the outline as a crisp hairline. */}
+      <text
+        x="50%"
+        y="55%"
+        dominantBaseline="middle"
+        textAnchor="middle"
+        fontFamily="var(--font-stolzl), Helvetica, Arial, sans-serif"
+        fontWeight="700"
+        fontSize="220"
+        letterSpacing="-6"
+        fill="url(#talent-pattern)"
+        style={{ paintOrder: "stroke fill" }}
+      >
+        TALENT
+      </text>
+      <text
+        x="50%"
+        y="55%"
+        dominantBaseline="middle"
+        textAnchor="middle"
+        fontFamily="var(--font-stolzl), Helvetica, Arial, sans-serif"
+        fontWeight="700"
+        fontSize="220"
+        letterSpacing="-6"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="1.2"
+      >
+        TALENT
+      </text>
     </svg>
   );
 });
