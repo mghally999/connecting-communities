@@ -11,9 +11,10 @@ dist
 # Bundle-analyzer reports
 **/analyze/*.html
 
-# Local archives (Browsertrix WACZ captures of foam.org + Playwright deep scrape)
+# Local archives (Browsertrix WACZ captures of foam.org + Playwright deep/mega scrapes)
 Foam/
 foam-deep/
+foam-mega-run/
 
 # Intermediate JSON dumped by scripts/build-talent-data.py for inspection
 tmp_talent_artists.json

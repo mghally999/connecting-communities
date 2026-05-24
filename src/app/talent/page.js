@@ -1,4 +1,4 @@
-import TalentExperience from "./TalentExperience";
+import TalentExperience from "@/components/talent/TalentExperience";
 
 export const metadata = {
   title: "Talent 2024 — Foam-style exhibition",
@@ -7,5 +7,5 @@ export const metadata = {
 };
 
 export default function TalentPage() {
-  return <TalentExperience />;
+  return <TalentExperience initialSlug={null} />;
 }
