@@ -142,6 +142,13 @@ export default function TalentExperience({ initialSlug = null }) {
           inset: 0,
           overflow: "hidden",
           color: hoveredArtist?.accentText || "#000",
+          /* Seed the bg on the inline style so the FIRST paint already
+           * has the right colour. Without this, framer-motion sets
+           * backgroundColor only after its first animation tick, so
+           * for ~1 frame the body's cream bg (set by GlobalStyle.js)
+           * shines through and reads as a white flash on initial mount
+           * and on every hot-reload. */
+          backgroundColor: bgTarget,
         }}
       >
         <FoamSidebar state={phase === "intro" || phase === "hero-zoom" ? "intro" : phase === "portfolio" ? "portfolio" : "gallery"} />

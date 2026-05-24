@@ -491,9 +491,15 @@
 
 /* The site-wide scroll-behavior: smooth conflicts with our hand-rolled
  * pin + ScrollTrigger pacing on the intro section. Turn it off when the
- * talent root is mounted (it's mounted by both /talent and /talent/<slug>). */
+ * talent root is mounted (it's mounted by both /talent and /talent/<slug>).
+ *
+ * Also forces the body to black on every talent route so no cream
+ * substrate from GlobalStyle.js can flash through during the brief
+ * window where talent-root remounts (route swap, hot reload, etc.).
+ * The talent-root itself paints its phase-correct colour on top. */
 body:has(.talent-root) {
   scroll-behavior: auto !important;
+  background: #000 !important;
 }
 
 body:has(.talent-root) main {
