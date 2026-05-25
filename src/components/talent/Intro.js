@@ -73,7 +73,7 @@ export default function Intro({ phase, heroArtist, onIntroComplete }) {
   // then we tip into the shrink phase.
   useEffect(() => {
     if (cycleIdx !== N - 1) return;
-    const t = setTimeout(() => setCycleIdx(N), 1000);
+    const t = setTimeout(() => setCycleIdx(N), 2000);
     return () => clearTimeout(t);
   }, [cycleIdx, N]);
 
@@ -84,7 +84,7 @@ export default function Intro({ phase, heroArtist, onIntroComplete }) {
   useEffect(() => {
     if (cycleIdx !== N) return;
     onIntroComplete?.();
-    const t = setTimeout(() => setCycleIdx(N + 1), 600);
+    const t = setTimeout(() => setCycleIdx(N + 1), 1400);
     return () => clearTimeout(t);
   }, [cycleIdx, N, onIntroComplete]);
 
@@ -155,8 +155,8 @@ export default function Intro({ phase, heroArtist, onIntroComplete }) {
             }
             exit={{ opacity: 0 }}
             transition={{
-              opacity: { duration: cycleIdx >= N + 1 ? 0.35 : 0.18, ease: "easeInOut" },
-              scale: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+              opacity: { duration: cycleIdx >= N + 1 ? 0.6 : 0.18, ease: "easeInOut" },
+              scale: { duration: 1.4, ease: [0.22, 1, 0.36, 1] },
             }}
             style={{
               position: "fixed",

@@ -77,10 +77,10 @@ function buildPlacements(artists) {
 }
 
 function cardExtras(artist) {
-  const slug = artist.slug || "";
-  let h = 0;
-  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
-  const rot = ((h % 100) / 100 - 0.5) * 4.8;
+  /* Foam.org reference: every card in the gallery sits at exactly 0°
+   * rotation. We previously hashed a ±2.4° tilt per slug for variety —
+   * dropping that brings the deck flush with the reference. */
+  const rot = 0;
   const sizeScale = artist.isPrimary ? 1.2 : 1.0;
   return { rot, sizeScale };
 }
