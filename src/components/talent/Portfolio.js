@@ -26,8 +26,10 @@
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import ExhibitionSection from "./spreads/ExhibitionSection";
+import { ARTISTS, nextArtist } from "@/lib/talent-artists";
 
-export default function Portfolio({ artist, onClose }) {
+export default function Portfolio({ artist, onClose, onNavigate }) {
+  const next = nextArtist(artist.slug);
   const sections = (artist.sections || []).filter((s) => {
     if (s.kind === "prose" && (!s.html || s.html === "<p></p>")) return false;
     return true;
@@ -137,7 +139,80 @@ export default function Portfolio({ artist, onClose }) {
         ))}
       </div>
 
-      {/* Close affordance — top-left, fixed across the scroll */}
+      {/* Phase 7D: thank-you end state — closes every portfolio with
+       *  a bold italic "thank you for visiting" + a black "view next
+       *  exhibition" pill that routes to the next artist. */}
+      <section
+        style={{
+          padding: "120px 0 140px",
+          textAlign: "center",
+          color: artist.accentText,
+        }}
+      >
+        <h2
+          style={{
+            fontStyle: "italic",
+            fontWeight: 700,
+            fontSize: "clamp(40px, 7vw, 96px)",
+            lineHeight: 1.05,
+            margin: 0,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          thank you<br />for visiting
+        </h2>
+        {next && (
+          <>
+            <p style={{ marginTop: 48, fontSize: 16, opacity: 0.9 }}>
+              next: {next.name}
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate?.(next)}
+              style={{
+                marginTop: 24,
+                height: 48,
+                padding: "0 24px 0 8px",
+                borderRadius: 9999,
+                background: "#000",
+                color: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 12,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 14,
+                letterSpacing: "0.04em",
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                  <path
+                    d="M1 5 C 3 1, 11 1, 13 5 C 11 9, 3 9, 1 5 Z"
+                    stroke="#000"
+                    strokeWidth="1.2"
+                  />
+                  <circle cx="7" cy="5" r="1.6" fill="#000" />
+                </svg>
+              </span>
+              view next exhibition
+            </button>
+          </>
+        )}
+      </section>
+
+      {/* Phase 7B: close affordance — top-left, rounded pill with arrow */}
       <button
         onClick={onClose}
         aria-label="Back to gallery"
@@ -146,16 +221,74 @@ export default function Portfolio({ artist, onClose }) {
           top: 24,
           left: 28,
           zIndex: 100,
+          height: 40,
+          padding: "0 16px",
+          borderRadius: 9999,
           background: "transparent",
-          border: 0,
+          border: "1px solid currentColor",
           color: artist.accentText,
-          fontSize: 13,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: 12,
           letterSpacing: "0.16em",
           textTransform: "uppercase",
           cursor: "pointer",
         }}
       >
-        ← gallery
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
+          <path d="M5 1 L1 5 L5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M1 5 L13 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        </svg>
+        gallery
+      </button>
+
+      {/* Phase 7C: "About the project" pill, bottom-centre */}
+      <button
+        type="button"
+        aria-label="About the project"
+        onClick={() => {
+          // Placeholder — modal lands in a follow-up phase.
+          // The visible affordance is what matters at this phase.
+        }}
+        style={{
+          position: "fixed",
+          bottom: 32,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 100,
+          height: 44,
+          padding: "0 20px 0 8px",
+          borderRadius: 9999,
+          background: "#000",
+          color: "#fff",
+          border: "none",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 12,
+          cursor: "pointer",
+          fontSize: 14,
+          letterSpacing: "0.02em",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            background: "#fff",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+            <path d="M1 5 C 3 1, 11 1, 13 5 C 11 9, 3 9, 1 5 Z" stroke="#000" strokeWidth="1.2" />
+            <circle cx="7" cy="5" r="1.6" fill="#000" />
+          </svg>
+        </span>
+        About the project
       </button>
     </motion.div>
   );

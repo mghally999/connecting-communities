@@ -15,8 +15,11 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
+/* Phase 7: chip set matches foam-mega-run/.../interactions/index_chip_*.png.
+ * 'overview' was removed (foam's row starts at 'illustration'); 'i' moved
+ * inside the chip list as a real pill. */
 const CHIPS = [
-  "overview",
+  "illustration",
   "landscape",
   "plants",
   "collage",
@@ -108,39 +111,58 @@ export default function CategoryChipsHud({ active, onChange, visible }) {
         }}
       >
         {CHIPS.map((c) => {
-          const on = (c === "overview" && !active) || c === active;
+          const on = c === active;
           return (
             <button
               key={c}
-              onClick={() => onChange?.(c === "overview" ? null : c)}
+              onClick={() => onChange?.(on ? null : c)}
               aria-pressed={on}
               style={{
-                background: "transparent",
-                border: 0,
-                padding: "4px 2px",
-                fontSize: 11,
+                /* Phase 7: pill-shaped buttons, 32-px tall, 1-px border,
+                 *  filled on active. Replaces the text-with-underline
+                 *  treatment. */
+                height: 32,
+                padding: "0 14px",
+                borderRadius: 9999,
+                border: "1px solid currentColor",
+                background: on ? "#000" : "transparent",
+                color: on ? "#fff" : "currentColor",
+                fontSize: 12,
                 letterSpacing: "0.02em",
+                lineHeight: 1,
                 cursor: "pointer",
-                color: on ? "#000" : "#999",
-                borderBottom: on ? "1px solid #000" : "1px solid transparent",
+                transition: "background 160ms ease, color 160ms ease",
+                whiteSpace: "nowrap",
               }}
             >
               {c}
             </button>
           );
         })}
-        <span
+        {/* The 'i' chip — same pill shape, italic glyph, opens the
+         *  about-this-exhibition modal (modal stub for now). */}
+        <button
+          type="button"
+          aria-label="About this exhibition"
+          onClick={() => { /* about-modal placeholder */ }}
           style={{
-            marginLeft: 10,
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            border: "1px solid currentColor",
+            background: "transparent",
+            color: "currentColor",
             fontStyle: "italic",
             fontSize: 13,
-            color: "#888",
-            cursor: "default",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 1,
           }}
-          aria-hidden="true"
         >
           i
-        </span>
+        </button>
       </motion.div>
 
       {/* Active-filter dismiss button — top-centre, 35x35 pill with X.

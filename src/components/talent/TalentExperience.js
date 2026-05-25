@@ -223,13 +223,17 @@ export default function TalentExperience({ initialSlug = null }) {
           )}
         </AnimatePresence>
 
-        {/* Portfolio — mounts on phase 'portfolio', morphs in via layoutId */}
+        {/* Portfolio — mounts on phase 'portfolio', morphs in via layoutId.
+         *  onNavigate is wired so the thank-you spread's "view next
+         *  exhibition" pill routes via the same enterPortfolio flow
+         *  (history.pushState + phase swap), not a hard router.push. */}
         <AnimatePresence>
           {phase === "portfolio" && activeArtist && (
             <Portfolio
               key={activeArtist.slug}
               artist={activeArtist}
               onClose={exitPortfolio}
+              onNavigate={(next) => enterPortfolio(next)}
             />
           )}
         </AnimatePresence>
