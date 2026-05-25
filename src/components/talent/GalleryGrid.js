@@ -19,69 +19,60 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { animate, motion, useMotionValue } from "framer-motion";
+import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
-/* Sphere distribution constants.
+/* Layout — scattered plane (foam.org's actual layout) with subtle 3D depth.
  *
- * Cards are arranged on a Fibonacci sphere — an even point distribution
- * on the surface of a ball — so the cluster reads as a 3D orb you spin,
- * not a flat scatter. The primary artist is pinned at the sphere centre
- * so the intro's shrink-handoff still lands on a single visible card.
- * Other artists occupy points around the sphere surface. */
-const SPHERE_RADIUS = 460; // px — half-diagonal of the cluster
-const PERSPECTIVE = 1800;  // px — CSS perspective on the parent
-const CARD_W_VW = 9;       // base card width in vw
-const ZOOM_MIN = 0.45;
-const ZOOM_MAX = 2.4;
+ * We use each artist's authored pos3 (x, y, z) — the data file was
+ * built straight from foam.org's gallery, so this scatter mirrors the
+ * reference exactly. The cluster gets a small amount of perspective
+ * depth from z so a slow autonomous yaw drift reads as 3D parallax,
+ * not a flat 2D pan. */
+const SCALE_X = 54;          // px per authored x-unit (horizontal scatter)
+const SCALE_Y = 52;          // px per authored y-unit (vertical scatter)
+const SCALE_Z = 16;          // px per authored z-unit (subtle depth)
+const PERSPECTIVE = 2200;    // CSS perspective on the parent
+const CARD_W_VW = 9;         // base card width in vw
 
-/* Fibonacci-sphere distribution. For N points, returns the i-th point
- * on a unit sphere. Multiplied by SPHERE_RADIUS to land in pixel space. */
-function fibonacciSphere(i, n) {
-  // Skip-by-two so the sphere doesn't have a card on each pole exactly.
-  const y = 1 - ((i + 0.5) / n) * 2;          // -1..1
-  const r = Math.sqrt(Math.max(0, 1 - y * y)); // radius at that y-slice
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const theta = goldenAngle * i;
-  return {
-    x: Math.cos(theta) * r,
-    y,
-    z: Math.sin(theta) * r,
-  };
+/* Rotation locks. The cluster is NOT a full-360 planet — the user can
+ * nudge it by ±USER_YAW_LIMIT / ±USER_PITCH_LIMIT degrees off the
+ * baseline yaw, and the autonomous drift advances the baseline slowly
+ * over time so the cluster appears to gently float rightward. */
+const USER_YAW_LIMIT = 28;   // deg — max left/right tilt from baseline
+const USER_PITCH_LIMIT = 16; // deg — max up/down tilt
+const IDLE_DRIFT_DEG_PER_SEC = 1.6; // slow continuous rightward yaw
+
+const ZOOM_MIN = 0.55;
+const ZOOM_MAX = 2.2;
+
+function computeCentroid(arr) {
+  if (arr.length === 0) return { cx: 0, cy: 0 };
+  const xs = arr.map((a) => parseFloat(a.pos3?.x ?? 0));
+  const ys = arr.map((a) => parseFloat(a.pos3?.y ?? 0));
+  const cx = xs.reduce((s, v) => s + v, 0) / xs.length;
+  const cy = ys.reduce((s, v) => s + v, 0) / ys.length;
+  return { cx, cy };
 }
 
-/* Build the placement for every artist once. Primary lands at origin
- * (z slightly forward so it sits in front of any nearby sphere card);
- * others get a Fibonacci-sphere slot. Stable across renders so cards
- * don't reshuffle when the artists array re-references. */
-function buildPlacements(artists) {
-  const others = artists.filter((a) => !a.isPrimary);
-  const placement = new Map();
-  artists.forEach((a) => {
-    if (a.isPrimary) {
-      placement.set(a.slug, { px: 0, py: 0, pz: 60 });
-    }
-  });
-  others.forEach((a, i) => {
-    const p = fibonacciSphere(i, others.length);
-    placement.set(a.slug, {
-      px: p.x * SPHERE_RADIUS,
-      py: p.y * SPHERE_RADIUS,
-      pz: p.z * SPHERE_RADIUS,
-    });
-  });
-  return placement;
-}
-
-function cardExtras(artist) {
-  // Mild per-slug rotation so cards aren't perfectly aligned with the
-  // sphere tangent — feels more like a hand-pinned collection.
+function projectArtist(artist, centroid) {
+  const x = parseFloat(artist.pos3?.x ?? 0);
+  const y = parseFloat(artist.pos3?.y ?? 0);
+  const z = parseFloat(artist.pos3?.z ?? 0);
+  const px = (x - centroid.cx) * SCALE_X;
+  const py = (y - centroid.cy) * SCALE_Y;
+  const pz = z * SCALE_Z; // negative for "behind", 0 for "front"
+  const t = Math.max(0, Math.min(1, (z + 20) / 20));
+  const sizeScale = 0.75 + t * 0.55;
   const slug = artist.slug || "";
   let h = 0;
   for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
   const rot = ((h % 100) / 100 - 0.5) * 4.8;
-  const sizeScale = artist.isPrimary ? 1.2 : 1.0;
-  return { rot, sizeScale };
+  return { px, py, pz, sizeScale, rot };
+}
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
 }
 
 export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick, activeFilter }) {
@@ -92,84 +83,133 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  const placements = useMemo(() => buildPlacements(artists), [artists]);
+  const centroid = useMemo(() => computeCentroid(artists), [artists]);
+  const PROJ = (a) => projectArtist(a, centroid);
 
-  /* Rotation motion values. rotY tracks horizontal pointer movement,
-   * rotX tracks vertical pointer movement. Both unconstrained — the
-   * sphere spins freely like a planet you flick. */
-  const rotY = useMotionValue(0);
-  const rotX = useMotionValue(0);
-  /* Zoom motion value — scales the whole cluster. Wheel/pinch on the
-   * trackpad sends impulses that smoothly approach a target zoom level.
-   * Clamped to [ZOOM_MIN, ZOOM_MAX] so the user can't lose the sphere
-   * off-screen. */
+  /* Rotation motion values are SPLIT into two pieces:
+   *   userYaw / userPitch  — clamped user input, decays via inertia
+   *   idleDrift             — autonomous continuous yaw, advances by
+   *                            IDLE_DRIFT_DEG_PER_SEC in a RAF loop
+   * Display rotation = userYaw + idleDrift on Y, userPitch on X. This
+   * splits "where the user has nudged it" from "the cluster's gentle
+   * autonomous float", so the user can't ever spin the cluster a full
+   * 360° (the userYaw stays within ±USER_YAW_LIMIT) but the cluster
+   * still appears to drift slowly to the right on its own. */
+  const userYaw = useMotionValue(0);
+  const userPitch = useMotionValue(0);
+  const idleDrift = useMotionValue(0);
+  const displayRotY = useTransform(
+    [userYaw, idleDrift],
+    ([u, d]) => u + d
+  );
   const zoom = useMotionValue(1);
-  // Velocity for inertia after release.
   const velY = useRef(0);
   const velX = useRef(0);
   const lastMove = useRef(0);
   const wrapperRef = useRef(null);
-  const dragging = useRef(false);
-  const dragStart = useRef({ x: 0, y: 0, rotX: 0, rotY: 0 });
+  // pending: pointerdown happened but we haven't moved past DRAG_THRESHOLD
+  //          yet — clicks on cards must pass through during this state.
+  // active:  past threshold; we own the pointer capture and rotate.
+  const dragState = useRef("idle");
+  const dragStart = useRef({ x: 0, y: 0, yaw: 0, pitch: 0, pointerId: 0 });
 
-  // Sensitivity: how many degrees per pixel of pointer travel.
-  const DPP = 0.32;
+  const DPP = 0.32;          // degrees per pixel of pointer travel
+  const DRAG_THRESHOLD = 5;  // px — below this, the gesture is a click
 
   const onPointerDown = useCallback((e) => {
-    // Only drag on background — clicks on cards go through onClick.
-    // We still allow grab anywhere on the wrapper; the cards stop
-    // event propagation via their own onClick handling.
-    dragging.current = true;
+    // Don't capture pointer yet. We want clicks on cards to bubble up
+    // naturally — pointer capture would re-target pointerup at the
+    // wrapper and suppress the click on the card underneath.
+    dragState.current = "pending";
     dragStart.current = {
       x: e.clientX,
       y: e.clientY,
-      rotX: rotX.get(),
-      rotY: rotY.get(),
+      yaw: userYaw.get(),
+      pitch: userPitch.get(),
+      pointerId: e.pointerId,
     };
     velY.current = 0;
     velX.current = 0;
     lastMove.current = performance.now();
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, [rotX, rotY]);
+  }, [userYaw, userPitch]);
 
   const onPointerMove = useCallback((e) => {
-    if (!dragging.current) return;
+    if (dragState.current === "idle") return;
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
-    const newRotY = dragStart.current.rotY + dx * DPP;
-    const newRotX = dragStart.current.rotX - dy * DPP;
-    // Track velocity (px/ms) for the inertia release.
+    // Promote pending → active once the cursor moves past threshold.
+    // At that moment we capture the pointer so the rest of the gesture
+    // belongs to us even if the cursor leaves the cluster element.
+    if (dragState.current === "pending") {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      dragState.current = "active";
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    }
+    const newYaw = clamp(
+      dragStart.current.yaw + dx * DPP,
+      -USER_YAW_LIMIT,
+      USER_YAW_LIMIT
+    );
+    const newPitch = clamp(
+      dragStart.current.pitch - dy * DPP,
+      -USER_PITCH_LIMIT,
+      USER_PITCH_LIMIT
+    );
     const now = performance.now();
     const dt = Math.max(1, now - lastMove.current);
     velY.current = (e.movementX * DPP) / dt;
     velX.current = (-e.movementY * DPP) / dt;
     lastMove.current = now;
-    rotY.set(newRotY);
-    rotX.set(newRotX);
-  }, [rotX, rotY]);
+    userYaw.set(newYaw);
+    userPitch.set(newPitch);
+  }, [userYaw, userPitch]);
 
   const onPointerUp = useCallback((e) => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
-    // Apply inertia using framer-motion's animate(). Velocity is in
-    // deg/ms; multiply by 1000 to get deg/s which `animate(type:'decay')`
-    // expects. timeConstant 750 ms = same feel as the previous 2D drag.
-    const vY = velY.current * 1000;
-    const vX = velX.current * 1000;
-    animate(rotY, rotY.get() + vY * 0.4, {
-      type: "decay",
-      velocity: vY,
-      power: 0.7,
-      timeConstant: 750,
-    });
-    animate(rotX, rotX.get() + vX * 0.4, {
-      type: "decay",
-      velocity: vX,
-      power: 0.7,
-      timeConstant: 750,
-    });
-  }, [rotX, rotY]);
+    const wasActive = dragState.current === "active";
+    dragState.current = "idle";
+    if (wasActive) {
+      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+      // Inertia release. min/max keep the decay clamped inside the
+      // user-rotation range — the cluster glides toward its target
+      // but bounces off the limits softly.
+      const vY = velY.current * 1000;
+      const vX = velX.current * 1000;
+      animate(userYaw, userYaw.get() + vY * 0.3, {
+        type: "decay",
+        velocity: vY,
+        power: 0.7,
+        timeConstant: 650,
+        min: -USER_YAW_LIMIT,
+        max: USER_YAW_LIMIT,
+      });
+      animate(userPitch, userPitch.get() + vX * 0.3, {
+        type: "decay",
+        velocity: vX,
+        power: 0.7,
+        timeConstant: 650,
+        min: -USER_PITCH_LIMIT,
+        max: USER_PITCH_LIMIT,
+      });
+    }
+  }, [userYaw, userPitch]);
+
+  /* Autonomous idle drift. Continuously advances idleDrift by a small
+   * amount each frame so the cluster gently floats rightward on its
+   * own when the user isn't touching it. Drift keeps ticking during
+   * drag too — the user's offset is additive, so the combination
+   * still feels coherent. */
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now) => {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      idleDrift.set(idleDrift.get() + dt * IDLE_DRIFT_DEG_PER_SEC);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [idleDrift]);
 
   // Wheel + pinch → zoom. Both gestures arrive as wheel events on
   // macOS trackpads (pinch sets ctrlKey, two-finger scroll does not).
@@ -224,15 +264,16 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         style={{
           position: "absolute",
           inset: 0,
-          cursor: dragging.current ? "grabbing" : "grab",
+          cursor: "grab",
           touchAction: "none",
           transformStyle: "preserve-3d",
         }}
       >
         {/* The rotating cluster. transformStyle: preserve-3d lets the
          *  child cards keep their 3D depth as the cluster spins.
-         *  rotateX / rotateY are passed as native framer-motion props
-         *  (not via a composed `transform` string) so framer-motion's
+         *  Display rotation = userYaw + idleDrift on Y, userPitch on X.
+         *  rotateX / rotateY are passed as native framer-motion style
+         *  props (not via a composed `transform` string) so framer's
          *  matrix writer doesn't clobber the children's translate3d. */}
         <motion.div
           style={{
@@ -242,8 +283,8 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
             width: 0,
             height: 0,
             transformStyle: "preserve-3d",
-            rotateX: rotX,
-            rotateY: rotY,
+            rotateX: userPitch,
+            rotateY: displayRotY,
             scale: zoom,
           }}
         >
@@ -267,7 +308,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
               preserveAspectRatio="none"
             >
               {(() => {
-                const pts = artists.map((a) => placements.get(a.slug) || { px: 0, py: 0 });
+                const pts = artists.map((a) => PROJ(a));
                 const lines = [];
                 for (let i = 0; i < pts.length; i++) {
                   for (let j = i + 1; j < pts.length; j++) {
@@ -292,8 +333,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
 
           {artists.map((a, i) => {
             const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
-            const { px, py, pz } = placements.get(a.slug) || { px: 0, py: 0, pz: 0 };
-            const { rot, sizeScale } = cardExtras(a);
+            const { px, py, pz, sizeScale, rot } = PROJ(a);
             const isHovered = hoveredSlug === a.slug;
             const isDimmed = hoveredSlug && !isHovered;
             const isPrimary = !!a.isPrimary;
