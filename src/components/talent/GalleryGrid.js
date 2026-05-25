@@ -22,57 +22,55 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
-/* Layout — scattered plane (foam.org's actual layout) with subtle 3D depth.
- *
- * We use each artist's authored pos3 (x, y, z) — the data file was
- * built straight from foam.org's gallery, so this scatter mirrors the
- * reference exactly. The cluster gets a small amount of perspective
- * depth from z so a slow autonomous yaw drift reads as 3D parallax,
- * not a flat 2D pan. */
-const SCALE_X = 54;          // px per authored x-unit (horizontal scatter)
-const SCALE_Y = 52;          // px per authored y-unit (vertical scatter)
-const SCALE_Z = 16;          // px per authored z-unit (subtle depth)
-const PERSPECTIVE = 2200;    // CSS perspective on the parent
-const CARD_W_VW = 9;         // base card width in vw
+/* Sphere distribution + drift constants. */
+const SPHERE_RADIUS = 480;             // px — half-diagonal of the ball
+const PERSPECTIVE = 2000;              // CSS perspective on the parent
+const CARD_W_VW = 9;                   // base card width in vw
+const IDLE_DRIFT_DEG_PER_SEC = 3.5;    // continuous rightward yaw
+const ZOOM_MIN = 0.45;
+const ZOOM_MAX = 2.4;
 
-/* Rotation locks. The cluster is NOT a full-360 planet — the user can
- * nudge it by ±USER_YAW_LIMIT / ±USER_PITCH_LIMIT degrees off the
- * baseline yaw, and the autonomous drift advances the baseline slowly
- * over time so the cluster appears to gently float rightward. */
-const USER_YAW_LIMIT = 28;   // deg — max left/right tilt from baseline
-const USER_PITCH_LIMIT = 16; // deg — max up/down tilt
-const IDLE_DRIFT_DEG_PER_SEC = 1.6; // slow continuous rightward yaw
-
-const ZOOM_MIN = 0.55;
-const ZOOM_MAX = 2.2;
-
-function computeCentroid(arr) {
-  if (arr.length === 0) return { cx: 0, cy: 0 };
-  const xs = arr.map((a) => parseFloat(a.pos3?.x ?? 0));
-  const ys = arr.map((a) => parseFloat(a.pos3?.y ?? 0));
-  const cx = xs.reduce((s, v) => s + v, 0) / xs.length;
-  const cy = ys.reduce((s, v) => s + v, 0) / ys.length;
-  return { cx, cy };
+/* Fibonacci-sphere distribution — even spread on a unit sphere. */
+function fibonacciSphere(i, n) {
+  const y = 1 - ((i + 0.5) / n) * 2;          // -1..1
+  const r = Math.sqrt(Math.max(0, 1 - y * y)); // ring radius at y
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const theta = goldenAngle * i;
+  return {
+    x: Math.cos(theta) * r,
+    y,
+    z: Math.sin(theta) * r,
+  };
 }
 
-function projectArtist(artist, centroid) {
-  const x = parseFloat(artist.pos3?.x ?? 0);
-  const y = parseFloat(artist.pos3?.y ?? 0);
-  const z = parseFloat(artist.pos3?.z ?? 0);
-  const px = (x - centroid.cx) * SCALE_X;
-  const py = (y - centroid.cy) * SCALE_Y;
-  const pz = z * SCALE_Z; // negative for "behind", 0 for "front"
-  const t = Math.max(0, Math.min(1, (z + 20) / 20));
-  const sizeScale = 0.75 + t * 0.55;
+/* Build a stable slug → 3D position map. Primary artist sits at the
+ * cluster origin (z slightly forward so the intro's shrink-handoff
+ * lands on top of any near-sphere card behind it); the other 19
+ * occupy points around the sphere surface. */
+function buildPlacements(artists) {
+  const placement = new Map();
+  const others = artists.filter((a) => !a.isPrimary);
+  artists.forEach((a) => {
+    if (a.isPrimary) placement.set(a.slug, { px: 0, py: 0, pz: 60 });
+  });
+  others.forEach((a, i) => {
+    const p = fibonacciSphere(i, others.length);
+    placement.set(a.slug, {
+      px: p.x * SPHERE_RADIUS,
+      py: p.y * SPHERE_RADIUS,
+      pz: p.z * SPHERE_RADIUS,
+    });
+  });
+  return placement;
+}
+
+function cardExtras(artist) {
   const slug = artist.slug || "";
   let h = 0;
   for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
   const rot = ((h % 100) / 100 - 0.5) * 4.8;
-  return { px, py, pz, sizeScale, rot };
-}
-
-function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v));
+  const sizeScale = artist.isPrimary ? 1.2 : 1.0;
+  return { rot, sizeScale };
 }
 
 export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick, activeFilter }) {
@@ -83,45 +81,32 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  const centroid = useMemo(() => computeCentroid(artists), [artists]);
-  const PROJ = (a) => projectArtist(a, centroid);
+  const placements = useMemo(() => buildPlacements(artists), [artists]);
 
-  /* Rotation motion values are SPLIT into two pieces:
-   *   userYaw / userPitch  — clamped user input, decays via inertia
-   *   idleDrift             — autonomous continuous yaw, advances by
-   *                            IDLE_DRIFT_DEG_PER_SEC in a RAF loop
-   * Display rotation = userYaw + idleDrift on Y, userPitch on X. This
-   * splits "where the user has nudged it" from "the cluster's gentle
-   * autonomous float", so the user can't ever spin the cluster a full
-   * 360° (the userYaw stays within ±USER_YAW_LIMIT) but the cluster
-   * still appears to drift slowly to the right on its own. */
+  /* Rotation: userYaw / userPitch take pointer-drag input; idleDrift
+   * advances autonomously each RAF tick. Display Y rotation =
+   * userYaw + idleDrift so user nudge ADDS to the drift (no fight).
+   * No clamps — the sphere spins freely on both axes so the user can
+   * inspect any face of it. */
   const userYaw = useMotionValue(0);
   const userPitch = useMotionValue(0);
   const idleDrift = useMotionValue(0);
-  const displayRotY = useTransform(
-    [userYaw, idleDrift],
-    ([u, d]) => u + d
-  );
+  const displayRotY = useTransform([userYaw, idleDrift], ([u, d]) => u + d);
   const zoom = useMotionValue(1);
   const velY = useRef(0);
   const velX = useRef(0);
   const lastMove = useRef(0);
-  const wrapperRef = useRef(null);
-  // dragging.current === true only while a real rotation drag is in
-  // progress. We never enter this state if pointerdown landed on a
-  // card — clicks on cards take priority and pass through unimpeded.
+  const bgRef = useRef(null);
   const dragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0, yaw: 0, pitch: 0 });
 
   const DPP = 0.32; // degrees per pixel of pointer travel
 
+  /* These handlers live on the BACKGROUND-CAPTURE div, which is a
+   * sibling of the card cluster (not an ancestor). Cards re-enable
+   * pointer-events to receive their own clicks — they never bubble
+   * through here. So we don't need any "skip if on a button" logic. */
   const onPointerDown = useCallback((e) => {
-    // Drag only from empty space. If the pointer-down lands on a
-    // <button> (any card), don't intercept anything — the browser
-    // will route the eventual click to that card's onClick, which
-    // navigates to the portfolio. This is the cleanest separation:
-    // cards = click to navigate, background = drag to rotate.
-    if (e.target.closest("button")) return;
     dragging.current = true;
     dragStart.current = {
       x: e.clientX,
@@ -139,16 +124,8 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     if (!dragging.current) return;
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
-    const newYaw = clamp(
-      dragStart.current.yaw + dx * DPP,
-      -USER_YAW_LIMIT,
-      USER_YAW_LIMIT
-    );
-    const newPitch = clamp(
-      dragStart.current.pitch - dy * DPP,
-      -USER_PITCH_LIMIT,
-      USER_PITCH_LIMIT
-    );
+    const newYaw = dragStart.current.yaw + dx * DPP;
+    const newPitch = dragStart.current.pitch - dy * DPP;
     const now = performance.now();
     const dt = Math.max(1, now - lastMove.current);
     velY.current = (e.movementX * DPP) / dt;
@@ -168,17 +145,13 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
       type: "decay",
       velocity: vY,
       power: 0.7,
-      timeConstant: 650,
-      min: -USER_YAW_LIMIT,
-      max: USER_YAW_LIMIT,
+      timeConstant: 700,
     });
     animate(userPitch, userPitch.get() + vX * 0.3, {
       type: "decay",
       velocity: vX,
       power: 0.7,
-      timeConstant: 650,
-      min: -USER_PITCH_LIMIT,
-      max: USER_PITCH_LIMIT,
+      timeConstant: 700,
     });
   }, [userYaw, userPitch]);
 
@@ -205,7 +178,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
   // We treat both as zoom so the cluster grows/shrinks smoothly with
   // any trackpad gesture. Rotation stays exclusively on drag.
   useEffect(() => {
-    const el = wrapperRef.current;
+    const el = bgRef.current;
     if (!el) return;
     const onWheel = (e) => {
       e.preventDefault();
@@ -240,12 +213,15 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         perspective: `${PERSPECTIVE}px`,
       }}
     >
-      {/* Pointer-event capture surface — covers the entire viewport so
-       *  the user can grab and rotate the cluster from any empty space.
-       *  Cards stop propagation in their own onClick to avoid starting
-       *  a rotation when the user really wants to navigate. */}
+      {/* BACKGROUND CAPTURE — sits BEHIND the cards in DOM order so
+       *  it catches pointer-down on empty space. Cards have
+       *  pointer-events: auto re-enabled per-card; the cluster
+       *  container has pointer-events: none so empty space passes
+       *  through to this background layer. This split is what makes
+       *  clicks on cards reliable: cards receive their own click
+       *  events natively, with no ancestor handler swallowing them. */}
       <div
-        ref={wrapperRef}
+        ref={bgRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -253,17 +229,24 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         style={{
           position: "absolute",
           inset: 0,
+          zIndex: 0,
           cursor: "grab",
           touchAction: "none",
+        }}
+      />
+
+      {/* CLUSTER LAYER — sibling of background, pointer-events: none
+       *  so empty space inside it falls through to the background.
+       *  Each card opts back in to pointer-events. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          pointerEvents: "none",
           transformStyle: "preserve-3d",
         }}
       >
-        {/* The rotating cluster. transformStyle: preserve-3d lets the
-         *  child cards keep their 3D depth as the cluster spins.
-         *  Display rotation = userYaw + idleDrift on Y, userPitch on X.
-         *  rotateX / rotateY are passed as native framer-motion style
-         *  props (not via a composed `transform` string) so framer's
-         *  matrix writer doesn't clobber the children's translate3d. */}
         <motion.div
           style={{
             position: "absolute",
@@ -297,7 +280,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
               preserveAspectRatio="none"
             >
               {(() => {
-                const pts = artists.map((a) => PROJ(a));
+                const pts = artists.map((a) => placements.get(a.slug) || { px: 0, py: 0 });
                 const lines = [];
                 for (let i = 0; i < pts.length; i++) {
                   for (let j = i + 1; j < pts.length; j++) {
@@ -322,7 +305,8 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
 
           {artists.map((a, i) => {
             const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
-            const { px, py, pz, sizeScale, rot } = PROJ(a);
+            const { px, py, pz } = placements.get(a.slug) || { px: 0, py: 0, pz: 0 };
+            const { rot, sizeScale } = cardExtras(a);
             const isHovered = hoveredSlug === a.slug;
             const isDimmed = hoveredSlug && !isHovered;
             const isPrimary = !!a.isPrimary;
@@ -352,6 +336,8 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
                   width: `${cardWidthVw}vw`,
                   aspectRatio: "4 / 3",
                   zIndex: isHovered ? 20 : isPrimary ? 12 : 10,
+                  /* Cluster parent is pointer-events: none — opt this
+                   * card back in so its motion.button receives clicks. */
                   pointerEvents: isDimmed ? "none" : "auto",
                   willChange: "transform",
                 }}
