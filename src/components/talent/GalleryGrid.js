@@ -22,11 +22,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
-const SCALE_X = 36;    // px per authored x-unit
-const SCALE_Y = 38;    // px per authored y-unit
-const SCALE_Z = 30;    // px per authored z-unit (depth)
-const PERSPECTIVE = 1600; // CSS perspective on the parent
-const CARD_W_VW = 8;
+/* Scatter factors. The previous values (36 / 38) bunched the cluster
+ * tightly around the cluster origin — the perspective foreshortening
+ * made the cards look squeezed together. Bumped X/Y so the cluster
+ * spreads roughly 2× the viewport width and 1.5× its height, giving
+ * the scattered-cloud look from foam.org. Z is increased modestly so
+ * the depth still reads as 3D without pushing back cards out of view. */
+const SCALE_X = 82;    // px per authored x-unit (horizontal scatter)
+const SCALE_Y = 68;    // px per authored y-unit (vertical scatter)
+const SCALE_Z = 38;    // px per authored z-unit (depth)
+const PERSPECTIVE = 1800; // CSS perspective on the parent
+const CARD_W_VW = 9;
 
 function computeCentroid(arr) {
   if (arr.length === 0) return { cx: 0, cy: 0 };
