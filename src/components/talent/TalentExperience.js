@@ -188,6 +188,41 @@ export default function TalentExperience({ initialSlug = null }) {
           onChange={setActiveFilter}
         />
 
+        {/* Phase 6: bottom-centre caption with the hovered artist's
+         *  exhibition title + name. Replaces the per-card "enter
+         *  portfolio →" pill that used to live inside GalleryGrid.
+         *  Uses mix-blend-mode: difference so the white text inverts
+         *  against any artist-accent background colour. */}
+        <AnimatePresence>
+          {phase === "gallery" && hoveredArtist && (
+            <motion.div
+              key="hover-caption"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              style={{
+                position: "fixed",
+                bottom: 80,
+                left: "50%",
+                transform: "translateX(-50%)",
+                textAlign: "center",
+                pointerEvents: "none",
+                mixBlendMode: "difference",
+                color: "#fff",
+                zIndex: 50,
+              }}
+            >
+              <p style={{ fontStyle: "italic", fontSize: 22, margin: 0, lineHeight: 1.1 }}>
+                {hoveredArtist.exhibition || hoveredArtist.name}
+              </p>
+              <p style={{ fontSize: 15, marginTop: 6, opacity: 0.9 }}>
+                {hoveredArtist.name}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Portfolio — mounts on phase 'portfolio', morphs in via layoutId */}
         <AnimatePresence>
           {phase === "portfolio" && activeArtist && (

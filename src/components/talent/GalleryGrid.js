@@ -22,7 +22,7 @@
  */
 
 import React, { useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
 /**
@@ -122,7 +122,9 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
                 : { opacity: 0, scale: 0.85, rotate: 0 }
             }
             animate={{
-              opacity: isDimmed ? 0.25 : 1,
+              // Phase 6: foam.org hover hides siblings completely (not
+              // just dims). When ANY card is hovered, others go to 0.
+              opacity: isDimmed ? 0 : 1,
               scale: isHovered ? 1.08 : 1,
               rotate: rot,
             }}
@@ -165,35 +167,11 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
                 objectFit: "cover",
               }}
             />
-
-            {/* Enter-portfolio CTA — appears under the hovered card */}
-            <AnimatePresence>
-              {isHovered && (
-                <motion.span
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.25 }}
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    bottom: "-2.6em",
-                    transform: "translateX(-50%)",
-                    padding: "8px 16px",
-                    borderRadius: 999,
-                    background: a.accentText || "#000",
-                    color: a.accent || "#fff",
-                    fontSize: 11,
-                    letterSpacing: "0.12em",
-                    textTransform: "lowercase",
-                    whiteSpace: "nowrap",
-                    pointerEvents: "none",
-                  }}
-                >
-                  enter portfolio →
-                </motion.span>
-              )}
-            </AnimatePresence>
+            {/* Phase 6: the per-card "enter portfolio →" pill is removed.
+             *  foam.org shows the exhibition title + artist name as a
+             *  single bottom-centre caption instead; TalentExperience.js
+             *  owns that caption since it spans the viewport, not the
+             *  card. */}
           </motion.button>
         );
       })}
