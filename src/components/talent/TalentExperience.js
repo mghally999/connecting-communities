@@ -133,7 +133,11 @@ export default function TalentExperience({ initialSlug = null }) {
       <motion.div
         className="talent-root"
         animate={{ backgroundColor: bgTarget }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
+        /* 0.9 s so the black→white crossfade tracks the photo's 1.6 s
+         * shrink, eliminating the brief black gap where TALENT was
+         * fading on a black background before the gallery's white
+         * canvas appeared. */
+        transition={{ duration: 0.9, ease: "easeOut" }}
         style={{
           position: "fixed",
           inset: 0,
