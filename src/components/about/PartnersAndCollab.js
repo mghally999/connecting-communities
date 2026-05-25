@@ -48,13 +48,30 @@ const Grid = styled.div`
   @media (max-width: 768px) { grid-template-columns: 1fr; }
 `;
 
-/* The card is the 3D scene. perspective sits on the parent. */
-const CardOuter = styled.div`
+/* The card is the 3D scene. perspective sits on the parent.
+ *
+ * When the sector has an external URL we render the outer element as
+ * an <a> so the whole card is a single click target (anywhere on the
+ * card navigates). The flip animation is still pure CSS on :hover so
+ * the back face shows correctly, and on touch devices the first tap
+ * flips (via JS preventDefault) and the second tap navigates. When
+ * there's no URL (tele-conferencing today) we render a plain <div>
+ * with no cursor pointer and no navigation target. */
+const cardOuterStyle = `
   position: relative;
   aspect-ratio: 16 / 10.5;
   perspective: 1400px;
-  background: ${({ theme }) => theme.colors.skyBlueLight};
+  background: var(--theme-skyBlueLight, #cfe1f5);
+  text-decoration: none;
+  color: inherit;
+  display: block;
+`;
+const CardOuterLink = styled.a`
+  ${cardOuterStyle}
   cursor: pointer;
+`;
+const CardOuterStatic = styled.div`
+  ${cardOuterStyle}
 `;
 
 const Inner = styled.div`
@@ -63,12 +80,14 @@ const Inner = styled.div`
   height: 100%;
   transition: transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
   transform-style: preserve-3d;
-  ${CardOuter}:hover &,
-  ${CardOuter}:focus-within &,
+  /* The card's outer wrapper carries class="flip-card"; hover/focus
+   * on it flips the inner. Same class on both <a> and <div> variants
+   * so the selector chain works regardless of which one is rendered. */
+  .flip-card:hover &,
+  .flip-card:focus-within &,
   &[data-flipped="true"] {
     transform: rotateY(180deg);
   }
-  /* Reduced motion: keep both faces, just no flip */
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
@@ -83,15 +102,23 @@ const Face = styled.div`
 `;
 
 const Front = styled(Face)`
+  /* When flipped, the front faces away from the user. We disable its
+   * pointer events so clicks pass through to the parent <a> anchor
+   * (some browsers still hit-test the back-facing face otherwise). */
+  .flip-card:hover &,
+  .flip-card:focus-within &,
+  &[data-flipped-sibling="true"] {
+    pointer-events: none;
+  }
   &::before {
     content: "";
     position: absolute;
     inset: 0;
     background: rgba(0, 0, 0, 0.28);
     z-index: 1;
-    transition: background ${({ theme }) => theme.transitions.base};
+    transition: background 240ms ease;
   }
-  ${CardOuter}:hover &::before { background: rgba(0, 0, 0, 0.18); }
+  .flip-card:hover &::before { background: rgba(0, 0, 0, 0.18); }
 `;
 
 const Back = styled(Face)`
@@ -140,7 +167,10 @@ const BackBody = styled.p`
   max-width: 36ch;
 `;
 
-const BackCta = styled.a`
+/* The "Learn more" pill on the back face is now purely decorative —
+ * the whole outer <a> is the click target. Rendering this as a <span>
+ * inside an <a> also avoids the invalid <a> inside <a> nesting. */
+const BackCta = styled.span`
   margin-top: auto;
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 0.78rem;
@@ -150,18 +180,16 @@ const BackCta = styled.a`
   color: white;
   background: ${({ theme }) => theme.colors.orange};
   padding: 0.7rem 1.3rem;
-  text-decoration: none;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
   transition: background ${({ theme }) => theme.transitions.fast};
-  &:hover { background: ${({ theme }) => theme.colors.rust}; }
-  /* Allow click in addition to flip */
-  z-index: 3;
+  .flip-card:hover & { background: ${({ theme }) => theme.colors.rust}; }
 `;
 
 function FlipCard({ data: c }) {
   const [tapped, setTapped] = useState(false);
   const onClick = (e) => {
-    // On touch devices the first tap flips, the second tap follows the link.
+    // On touch devices: first tap flips (preventDefault on the
+    // outer <a> stops navigation), second tap follows the link.
     if (typeof window !== "undefined" && window.matchMedia?.("(hover: none)").matches) {
       if (!tapped) {
         e.preventDefault();
@@ -169,36 +197,41 @@ function FlipCard({ data: c }) {
       }
     }
   };
-  return (
-    <CardOuter onClick={onClick} tabIndex={0}>
-      <Inner data-flipped={tapped ? "true" : "false"}>
-        <Front>
-          <Image
-            src={c.image}
-            alt={c.label}
-            fill
-            sizes="(max-width: 768px) 100vw, 50vw"
-            style={{ objectFit: "cover" }}
-          />
-          <FrontLabel>{String(c.label).replace("-", "-\n")}</FrontLabel>
-        </Front>
-        <Back>
-          <BackTitle>{c.label}</BackTitle>
-          <BackBody>{c.back}</BackBody>
-          {c.ctaHref && (
-            <BackCta
-              href={c.ctaHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {c.ctaLabel || "Learn more"}
-            </BackCta>
-          )}
-        </Back>
-      </Inner>
-    </CardOuter>
+  const flipped = tapped;
+  const inner = (
+    <Inner data-flipped={flipped ? "true" : "false"}>
+      <Front data-flipped-sibling={flipped ? "true" : "false"}>
+        <Image
+          src={c.image}
+          alt={c.label}
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          style={{ objectFit: "cover" }}
+        />
+        <FrontLabel>{String(c.label).replace("-", "-\n")}</FrontLabel>
+      </Front>
+      <Back>
+        <BackTitle>{c.label}</BackTitle>
+        <BackBody>{c.back}</BackBody>
+        {c.ctaHref && <BackCta>{c.ctaLabel || "Learn more"}</BackCta>}
+      </Back>
+    </Inner>
   );
+  if (c.ctaHref) {
+    return (
+      <CardOuterLink
+        className="flip-card"
+        href={c.ctaHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onClick}
+        aria-label={`${c.label} — learn more (opens in a new tab)`}
+      >
+        {inner}
+      </CardOuterLink>
+    );
+  }
+  return <CardOuterStatic className="flip-card">{inner}</CardOuterStatic>;
 }
 
 export default function PartnersAndCollab({ data }) {
