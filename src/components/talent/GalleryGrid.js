@@ -395,7 +395,12 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
                     background: "transparent",
                     cursor: "pointer",
                     willChange: "transform, opacity",
-                    backfaceVisibility: "hidden",
+                    /* backface-visibility intentionally NOT set —
+                     * yaw is unbounded, so cards rotate past 90°
+                     * regularly. With `hidden` they'd vanish from the
+                     * cluster on every swing; allowing the back-facing
+                     * side to render keeps the image visible (mirrored)
+                     * from any angle. */
                   }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
