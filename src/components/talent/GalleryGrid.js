@@ -22,48 +22,66 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { animate, motion, useMotionValue } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
-/* Scatter factors. The previous values (36 / 38) bunched the cluster
- * tightly around the cluster origin — the perspective foreshortening
- * made the cards look squeezed together. Bumped X/Y so the cluster
- * spreads roughly 2× the viewport width and 1.5× its height, giving
- * the scattered-cloud look from foam.org. Z is increased modestly so
- * the depth still reads as 3D without pushing back cards out of view. */
-const SCALE_X = 82;    // px per authored x-unit (horizontal scatter)
-const SCALE_Y = 68;    // px per authored y-unit (vertical scatter)
-const SCALE_Z = 38;    // px per authored z-unit (depth)
-const PERSPECTIVE = 1800; // CSS perspective on the parent
-const CARD_W_VW = 9;
+/* Sphere distribution constants.
+ *
+ * Cards are arranged on a Fibonacci sphere — an even point distribution
+ * on the surface of a ball — so the cluster reads as a 3D orb you spin,
+ * not a flat scatter. The primary artist is pinned at the sphere centre
+ * so the intro's shrink-handoff still lands on a single visible card.
+ * Other artists occupy points around the sphere surface. */
+const SPHERE_RADIUS = 460; // px — half-diagonal of the cluster
+const PERSPECTIVE = 1800;  // px — CSS perspective on the parent
+const CARD_W_VW = 9;       // base card width in vw
+const ZOOM_MIN = 0.45;
+const ZOOM_MAX = 2.4;
 
-function computeCentroid(arr) {
-  if (arr.length === 0) return { cx: 0, cy: 0 };
-  const xs = arr.map((a) => parseFloat(a.pos3?.x ?? 0));
-  const ys = arr.map((a) => parseFloat(a.pos3?.y ?? 0));
-  const cx = xs.reduce((s, v) => s + v, 0) / xs.length;
-  const cy = ys.reduce((s, v) => s + v, 0) / ys.length;
-  return { cx, cy };
+/* Fibonacci-sphere distribution. For N points, returns the i-th point
+ * on a unit sphere. Multiplied by SPHERE_RADIUS to land in pixel space. */
+function fibonacciSphere(i, n) {
+  // Skip-by-two so the sphere doesn't have a card on each pole exactly.
+  const y = 1 - ((i + 0.5) / n) * 2;          // -1..1
+  const r = Math.sqrt(Math.max(0, 1 - y * y)); // radius at that y-slice
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const theta = goldenAngle * i;
+  return {
+    x: Math.cos(theta) * r,
+    y,
+    z: Math.sin(theta) * r,
+  };
 }
 
-function projectArtist(artist, centroid) {
-  const x = parseFloat(artist.pos3?.x ?? 0);
-  const y = parseFloat(artist.pos3?.y ?? 0);
-  const z = parseFloat(artist.pos3?.z ?? 0);
-  // Pixel offsets from the cluster origin, in 3D space.
-  const px = (x - centroid.cx) * SCALE_X;
-  const py = (y - centroid.cy) * SCALE_Y;
-  // Depth: authored z is negative (foam.org puts most cards behind the
-  // primary at z=0). Multiplying gives "back" cards negative translateZ
-  // so they recede from the camera.
-  const pz = z * SCALE_Z;
-  // Per-card "presence" scale based on z — closer cards a touch bigger.
-  // Combined with translateZ this reads as the perspective doing real
-  // work without the size ratio being absurd.
-  const t = Math.max(0, Math.min(1, (z + 20) / 20));
-  const sizeScale = 0.7 + t * 0.5;
+/* Build the placement for every artist once. Primary lands at origin
+ * (z slightly forward so it sits in front of any nearby sphere card);
+ * others get a Fibonacci-sphere slot. Stable across renders so cards
+ * don't reshuffle when the artists array re-references. */
+function buildPlacements(artists) {
+  const others = artists.filter((a) => !a.isPrimary);
+  const placement = new Map();
+  artists.forEach((a) => {
+    if (a.isPrimary) {
+      placement.set(a.slug, { px: 0, py: 0, pz: 60 });
+    }
+  });
+  others.forEach((a, i) => {
+    const p = fibonacciSphere(i, others.length);
+    placement.set(a.slug, {
+      px: p.x * SPHERE_RADIUS,
+      py: p.y * SPHERE_RADIUS,
+      pz: p.z * SPHERE_RADIUS,
+    });
+  });
+  return placement;
+}
+
+function cardExtras(artist) {
+  // Mild per-slug rotation so cards aren't perfectly aligned with the
+  // sphere tangent — feels more like a hand-pinned collection.
   const slug = artist.slug || "";
   let h = 0;
   for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
   const rot = ((h % 100) / 100 - 0.5) * 4.8;
-  return { px, py, pz, sizeScale, rot };
+  const sizeScale = artist.isPrimary ? 1.2 : 1.0;
+  return { rot, sizeScale };
 }
 
 export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick, activeFilter }) {
@@ -74,14 +92,18 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  const centroid = useMemo(() => computeCentroid(artists), [artists]);
-  const PROJ = (a) => projectArtist(a, centroid);
+  const placements = useMemo(() => buildPlacements(artists), [artists]);
 
   /* Rotation motion values. rotY tracks horizontal pointer movement,
    * rotX tracks vertical pointer movement. Both unconstrained — the
-   * cluster spins freely like a planet you flick. */
+   * sphere spins freely like a planet you flick. */
   const rotY = useMotionValue(0);
   const rotX = useMotionValue(0);
+  /* Zoom motion value — scales the whole cluster. Wheel/pinch on the
+   * trackpad sends impulses that smoothly approach a target zoom level.
+   * Clamped to [ZOOM_MIN, ZOOM_MAX] so the user can't lose the sphere
+   * off-screen. */
+  const zoom = useMotionValue(1);
   // Velocity for inertia after release.
   const velY = useRef(0);
   const velX = useRef(0);
@@ -149,33 +171,34 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     });
   }, [rotX, rotY]);
 
-  // Wheel: vertical wheel tips the cluster forward/back (rotX), shift+
-  // wheel or horizontal trackpad tilts left/right (rotY). Each tick
-  // applies a small impulse animated with inertia for a smooth feel.
+  // Wheel + pinch → zoom. Both gestures arrive as wheel events on
+  // macOS trackpads (pinch sets ctrlKey, two-finger scroll does not).
+  // We treat both as zoom so the cluster grows/shrinks smoothly with
+  // any trackpad gesture. Rotation stays exclusively on drag.
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
     const onWheel = (e) => {
-      if (e.ctrlKey) return;
       e.preventDefault();
-      const stepX = e.deltaY * 0.18;
-      const stepY = e.deltaX * 0.18;
-      animate(rotX, rotX.get() - stepX, {
-        type: "inertia",
-        velocity: -stepX * 6,
-        power: 0.35,
-        timeConstant: 320,
-      });
-      animate(rotY, rotY.get() + stepY, {
-        type: "inertia",
-        velocity: stepY * 6,
-        power: 0.35,
-        timeConstant: 320,
+      // Pinch carries large negative deltaY for spread-apart; wheel
+      // gives ±100ish per notch. Normalise the factor so a single
+      // wheel notch produces ~6% zoom change, and a pinch gesture
+      // smoothly tracks the fingers.
+      const factor = e.ctrlKey ? 0.012 : 0.0015;
+      const next = Math.max(
+        ZOOM_MIN,
+        Math.min(ZOOM_MAX, zoom.get() * Math.exp(-e.deltaY * factor))
+      );
+      animate(zoom, next, {
+        type: "spring",
+        stiffness: 220,
+        damping: 26,
+        mass: 0.6,
       });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [rotX, rotY]);
+  }, [zoom]);
 
   return (
     <div
@@ -221,6 +244,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
             transformStyle: "preserve-3d",
             rotateX: rotX,
             rotateY: rotY,
+            scale: zoom,
           }}
         >
           {/* Filter network graph — 2D SVG overlaid behind the cluster.
@@ -243,7 +267,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
               preserveAspectRatio="none"
             >
               {(() => {
-                const pts = artists.map((a) => PROJ(a));
+                const pts = artists.map((a) => placements.get(a.slug) || { px: 0, py: 0 });
                 const lines = [];
                 for (let i = 0; i < pts.length; i++) {
                   for (let j = i + 1; j < pts.length; j++) {
@@ -268,7 +292,8 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
 
           {artists.map((a, i) => {
             const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
-            const { px, py, pz, sizeScale, rot } = PROJ(a);
+            const { px, py, pz } = placements.get(a.slug) || { px: 0, py: 0, pz: 0 };
+            const { rot, sizeScale } = cardExtras(a);
             const isHovered = hoveredSlug === a.slug;
             const isDimmed = hoveredSlug && !isHovered;
             const isPrimary = !!a.isPrimary;
