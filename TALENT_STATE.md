@@ -219,6 +219,14 @@ picsum.photos placeholders.
    pattern entirely. If the indicator returns, capture the actual
    error text from the overlay.
 
+9. **~1.5 s black gap between intro cycle end and gallery appearance.**
+   Observed in the May 2026 video review (frames 25–31). The last
+   intro photo's exit animation completes before the gallery cards'
+   enter animation kicks in, leaving the screen black for ~1 second
+   with just the "oam" wordmark visible. Likely a transition-timing
+   issue in `Intro.js` — either overlap the exit + gallery enter or
+   trigger the phase advance earlier. To investigate in next session.
+
 ---
 
 ## How to test the parity sweep

@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useMotionValue } from "framer-motion";
+import { animate, motion, useMotionValue } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
 /**
@@ -76,33 +76,35 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
   const centroid = useMemo(() => computeCentroid(artists), [artists]);
   const PROJ = (a) => projectArtist(a, centroid);
 
-  /* Phase 3 — cluster drag with momentum + elastic tether.
+  /* Ball-physics cluster drag.
    *
-   * The whole 20-card cluster is one draggable group. Constraints are
-   * proportional to viewport so the feel is consistent across screen
-   * sizes; they're set in a useEffect after mount (SSR-safe) and
-   * updated on window resize. dragMomentum + bounceStiffness:110 +
-   * bounceDamping:14 + power:0.42 + timeConstant:380 reproduces foam's
-   * "tethered balloons" inertia: short throw, soft settle, elastic
-   * bounce-back when pushed past the constraint.
+   * Constraints are loose (±60% of viewport) so the cluster can be
+   * pushed comfortably off-center and is recovered by the user, not
+   * yanked back by a magnet. dragElastic 0.55 lets the user pull
+   * even further past the constraint while holding. The dragTransition
+   * tuning (power 0.7, timeConstant 750, bounceStiffness 50, bounceDamping
+   * 12) gives a 1.5–2 s glide on flick release, a soft cushion when
+   * the cluster overshoots, and at most one mild overshoot before
+   * settling — no perceptible snap-back.
    *
-   * dragX/dragY are motion values so the wheel handler can pan the
-   * same transform without fighting framer-motion's matrix writer. */
+   * dragX/dragY are motion values so the wheel handler can apply
+   * inertia-typed `animate()` calls to the same transform without
+   * fighting framer-motion's matrix writer. */
   const dragX = useMotionValue(0);
   const dragY = useMotionValue(0);
   const wrapperRef = useRef(null);
   const [constraints, setConstraints] = useState({
-    left: -400,
-    right: 400,
-    top: -240,
-    bottom: 240,
+    left: -700,
+    right: 700,
+    top: -420,
+    bottom: 420,
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const update = () => {
-      const maxX = window.innerWidth * 0.35;
-      const maxY = window.innerHeight * 0.35;
+      const maxX = window.innerWidth * 0.6;
+      const maxY = window.innerHeight * 0.6;
       setConstraints({ left: -maxX, right: maxX, top: -maxY, bottom: maxY });
     };
     update();
@@ -110,26 +112,43 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  // Wheel/trackpad pan fallback. Updates the same x/y motion values
-  // the drag uses, with clamping against the live constraint window.
-  // ctrlKey is preserved so pinch-zoom (mac trackpads send wheel events
-  // with ctrlKey when pinching) passes through to the browser.
+  // Wheel/trackpad pan with physics. Each tick fires an inertia-typed
+  // animate() so the cluster glides instead of teleporting to a new
+  // position. ctrlKey is preserved so pinch-zoom passes through.
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
     const onWheel = (e) => {
       if (e.ctrlKey) return;
       e.preventDefault();
-      const dx = e.deltaX * 0.8;
-      const dy = e.deltaY * 0.8;
-      const nx = Math.max(constraints.left, Math.min(constraints.right, dragX.get() - dx));
-      const ny = Math.max(constraints.top, Math.min(constraints.bottom, dragY.get() - dy));
-      dragX.set(nx);
-      dragY.set(ny);
+      const maxX = window.innerWidth * 0.6;
+      const maxY = window.innerHeight * 0.6;
+      const nx = Math.max(-maxX, Math.min(maxX, dragX.get() - e.deltaX * 1.2));
+      const ny = Math.max(-maxY, Math.min(maxY, dragY.get() - e.deltaY * 1.2));
+      animate(dragX, nx, {
+        type: "inertia",
+        velocity: -e.deltaX * 8,
+        power: 0.4,
+        timeConstant: 400,
+        bounceStiffness: 50,
+        bounceDamping: 12,
+        min: -maxX,
+        max: maxX,
+      });
+      animate(dragY, ny, {
+        type: "inertia",
+        velocity: -e.deltaY * 8,
+        power: 0.4,
+        timeConstant: 400,
+        bounceStiffness: 50,
+        bounceDamping: 12,
+        min: -maxY,
+        max: maxY,
+      });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [constraints, dragX, dragY]);
+  }, [dragX, dragY]);
 
   return (
     <div
@@ -141,29 +160,32 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         overflow: "hidden",
       }}
     >
-      {/* Phase 3 — cluster drag with momentum + elastic tether.
-       *  Custom dragTransition values (bounceStiffness 110, bounceDamping
-       *  14, power 0.42, timeConstant 380) match foam.org's settle feel —
-       *  defaults are too snappy. dragElastic 0.18 gives the rubber-band
-       *  pull past the constraint. The wrapper is the only drag target;
-       *  cards inside don't drag themselves. */}
+      {/* Ball-physics drag wrapper.
+       *  power 0.7 throws further on a flick; timeConstant 750 lets
+       *  velocity decay over ~1.8 s; bounceStiffness 50 + bounceDamping
+       *  12 give a soft cushion (no snap-back) when overshooting the
+       *  constraint. dragElastic 0.55 lets the user pull the cluster
+       *  well past the constraint while holding. modifyTarget is the
+       *  identity so framer-motion never snaps to a rounded value. */}
       <motion.div
         ref={wrapperRef}
         drag
         dragMomentum={true}
-        dragElastic={0.18}
+        dragElastic={0.55}
         dragConstraints={constraints}
         dragTransition={{
-          bounceStiffness: 110,
-          bounceDamping: 14,
-          power: 0.42,
-          timeConstant: 380,
+          power: 0.7,
+          timeConstant: 750,
+          bounceStiffness: 50,
+          bounceDamping: 12,
+          modifyTarget: (t) => t,
         }}
         whileDrag={{ cursor: "grabbing" }}
         style={{
+          position: "absolute",
+          inset: 0,
           width: "100%",
           height: "100%",
-          position: "relative",
           cursor: "grab",
           touchAction: "none",
           x: dragX,
