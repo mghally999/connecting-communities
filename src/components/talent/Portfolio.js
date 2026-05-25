@@ -441,30 +441,37 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
         </section>
       </div>
 
-      {/* Phase 7 back button — rectangular pill, ~80×40, 4px radius */}
+      {/* Phase 5 back button — rectangular pill, 80×40, 6px radius.
+       *  mixBlendMode: 'difference' makes it always readable against
+       *  whatever (dark hero photo, cream spread, accent fill) is behind
+       *  it. Color is forced to white so the blend inverts to the dark
+       *  silhouette on light backgrounds, and stays white on dark. */}
       <button
         onClick={onClose}
         aria-label="Back to gallery"
         style={{
           position: "fixed",
           top: 24,
-          left: 28,
+          left: 24,
           zIndex: 100,
           width: 80,
           height: 40,
           padding: "0 12px",
-          borderRadius: 4,
+          borderRadius: 6,
           background: "transparent",
-          border: "1px solid currentColor",
-          color: artist.accentText,
+          border: "1.5px solid #fff",
+          color: "#fff",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          gap: 6,
+          justifyContent: "center",
+          gap: 8,
           fontSize: 12,
-          letterSpacing: "0.16em",
+          fontWeight: 500,
+          letterSpacing: "0.08em",
           textTransform: "uppercase",
           cursor: "pointer",
+          mixBlendMode: "difference",
+          fontFamily: "inherit",
         }}
       >
         <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
