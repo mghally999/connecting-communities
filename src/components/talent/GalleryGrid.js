@@ -107,44 +107,38 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
   const velX = useRef(0);
   const lastMove = useRef(0);
   const wrapperRef = useRef(null);
-  // pending: pointerdown happened but we haven't moved past DRAG_THRESHOLD
-  //          yet — clicks on cards must pass through during this state.
-  // active:  past threshold; we own the pointer capture and rotate.
-  const dragState = useRef("idle");
-  const dragStart = useRef({ x: 0, y: 0, yaw: 0, pitch: 0, pointerId: 0 });
+  // dragging.current === true only while a real rotation drag is in
+  // progress. We never enter this state if pointerdown landed on a
+  // card — clicks on cards take priority and pass through unimpeded.
+  const dragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, yaw: 0, pitch: 0 });
 
-  const DPP = 0.32;          // degrees per pixel of pointer travel
-  const DRAG_THRESHOLD = 5;  // px — below this, the gesture is a click
+  const DPP = 0.32; // degrees per pixel of pointer travel
 
   const onPointerDown = useCallback((e) => {
-    // Don't capture pointer yet. We want clicks on cards to bubble up
-    // naturally — pointer capture would re-target pointerup at the
-    // wrapper and suppress the click on the card underneath.
-    dragState.current = "pending";
+    // Drag only from empty space. If the pointer-down lands on a
+    // <button> (any card), don't intercept anything — the browser
+    // will route the eventual click to that card's onClick, which
+    // navigates to the portfolio. This is the cleanest separation:
+    // cards = click to navigate, background = drag to rotate.
+    if (e.target.closest("button")) return;
+    dragging.current = true;
     dragStart.current = {
       x: e.clientX,
       y: e.clientY,
       yaw: userYaw.get(),
       pitch: userPitch.get(),
-      pointerId: e.pointerId,
     };
     velY.current = 0;
     velX.current = 0;
     lastMove.current = performance.now();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
   }, [userYaw, userPitch]);
 
   const onPointerMove = useCallback((e) => {
-    if (dragState.current === "idle") return;
+    if (!dragging.current) return;
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
-    // Promote pending → active once the cursor moves past threshold.
-    // At that moment we capture the pointer so the rest of the gesture
-    // belongs to us even if the cursor leaves the cluster element.
-    if (dragState.current === "pending") {
-      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-      dragState.current = "active";
-      try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-    }
     const newYaw = clamp(
       dragStart.current.yaw + dx * DPP,
       -USER_YAW_LIMIT,
@@ -165,32 +159,27 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
   }, [userYaw, userPitch]);
 
   const onPointerUp = useCallback((e) => {
-    const wasActive = dragState.current === "active";
-    dragState.current = "idle";
-    if (wasActive) {
-      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
-      // Inertia release. min/max keep the decay clamped inside the
-      // user-rotation range — the cluster glides toward its target
-      // but bounces off the limits softly.
-      const vY = velY.current * 1000;
-      const vX = velX.current * 1000;
-      animate(userYaw, userYaw.get() + vY * 0.3, {
-        type: "decay",
-        velocity: vY,
-        power: 0.7,
-        timeConstant: 650,
-        min: -USER_YAW_LIMIT,
-        max: USER_YAW_LIMIT,
-      });
-      animate(userPitch, userPitch.get() + vX * 0.3, {
-        type: "decay",
-        velocity: vX,
-        power: 0.7,
-        timeConstant: 650,
-        min: -USER_PITCH_LIMIT,
-        max: USER_PITCH_LIMIT,
-      });
-    }
+    if (!dragging.current) return;
+    dragging.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    const vY = velY.current * 1000;
+    const vX = velX.current * 1000;
+    animate(userYaw, userYaw.get() + vY * 0.3, {
+      type: "decay",
+      velocity: vY,
+      power: 0.7,
+      timeConstant: 650,
+      min: -USER_YAW_LIMIT,
+      max: USER_YAW_LIMIT,
+    });
+    animate(userPitch, userPitch.get() + vX * 0.3, {
+      type: "decay",
+      velocity: vX,
+      power: 0.7,
+      timeConstant: 650,
+      min: -USER_PITCH_LIMIT,
+      max: USER_PITCH_LIMIT,
+    });
   }, [userYaw, userPitch]);
 
   /* Autonomous idle drift. Continuously advances idleDrift by a small
