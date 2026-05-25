@@ -1,19 +1,37 @@
 "use client";
 
 /**
- * TALENT wordmark with op-art pattern fill.
+ * TALENT wordmark — op-art warped pattern.
  *
- * Visual oracle: foam-mega/site/screenshots/index_y0.png — letterforms
- * filled with a tight checker/stripe pattern (high-contrast black/white,
- * 8 px tiles) and outlined by a 1 px white stroke. Earlier revision
- * applied the pattern via a clipped rect; some browsers wouldn't resolve
- * the clip-path-via-use chain when the source <text> lived inside
- * <defs>, leaving us with the bare outline. Painting the pattern fill
- * directly on the visible <text> element fixes that.
+ * Visual oracle: foam-mega-run/foam-mega/site/screenshots/index_y0.png
+ * (and reference.mov frame ~0:55). The foam.org intro renders TALENT
+ * as a single continuous undulating field — horizontal stripes that
+ * curve and bulge as if wrapped around invisible cylinders, with the
+ * curves tightening toward letter edges. Bridget Riley fingerprint
+ * look, no top/bottom split.
  *
- * The split (checker top half + vertical stripes bottom half) is kept
- * for parity with the live foam.org mark, which reads as part-checker
- * part-stripe at intermediate zoom levels.
+ * Foam ships the equivalent effect via three.js in
+ * foam-mega-run/foam-mega/site/shaders/index_01.glsl (grayscale +
+ * displacement family) on image planes — same idea, different surface.
+ * For the TALENT mark we don't need WebGL: SVG feTurbulence +
+ * feDisplacementMap on a horizontal-stripe pattern reproduces it as
+ * one filter primitive, no new deps.
+ *
+ * Tuning (dial these inline if it reads off in the browser):
+ *   baseFrequency  0.008 0.014  — warp wavelength. Lower = larger waves
+ *                                 (more cinematic). Upper bound ~0.030
+ *                                 before it turns to mush.
+ *   numOctaves     2            — stacked noise layers. 1 cleanest,
+ *                                 2 matches foam, 3+ too busy.
+ *   scale          38           — displacement magnitude. At fontSize
+ *                                 220, scale 38 ≈ 13% of cap-height;
+ *                                 matches foam by eye. 24-28 keeps
+ *                                 letters readable; 48-56 cranks the
+ *                                 warp if it reads too tame.
+ *   seed           7            — RNG seed; any integer. Picked by eye.
+ *
+ * viewBox + preserveAspectRatio are kept identical to the previous
+ * file so Intro.js's layout slot doesn't reflow.
  */
 
 import React from "react";
@@ -32,49 +50,53 @@ const TalentMarkSVG = React.forwardRef(function TalentMarkSVG(
       aria-label="TALENT"
       focusable="false"
     >
+      <title>TALENT</title>
       <defs>
-        {/* 16-px checker tile — high contrast for the op-art effect */}
+        {/* Base stripe field — 6-px horizontal black/white bands. The
+         *  displacement filter below turns these into the curved
+         *  "fingerprint" pattern foam uses. */}
         <pattern
-          id="talent-checker"
-          width="16"
-          height="16"
+          id="talent-stripes-warp"
+          x="0"
+          y="0"
+          width="12"
+          height="12"
           patternUnits="userSpaceOnUse"
         >
-          <rect width="16" height="16" fill="#ffffff" />
-          <rect x="0" y="0" width="8" height="8" fill="#000000" />
-          <rect x="8" y="8" width="8" height="8" fill="#000000" />
+          <rect width="12" height="6" fill="#000000" />
+          <rect y="6" width="12" height="6" fill="#ffffff" />
         </pattern>
 
-        {/* 16-px vertical-stripe tile */}
-        <pattern
-          id="talent-stripes"
-          width="16"
-          height="16"
-          patternUnits="userSpaceOnUse"
+        {/* Warp filter — Bridget Riley undulation via turbulent
+         *  displacement. Applied to the pattern-filled <text> below
+         *  but NOT the stroke pass (we want the outline crisp). */}
+        <filter
+          id="talent-warp"
+          x="-10%"
+          y="-10%"
+          width="120%"
+          height="120%"
+          filterUnits="userSpaceOnUse"
+          primitiveUnits="userSpaceOnUse"
         >
-          <rect width="16" height="16" fill="#ffffff" />
-          <rect x="0" y="0" width="8" height="16" fill="#000000" />
-        </pattern>
-
-        {/* Composite pattern: checker on top half of the viewBox, stripes
-         * on the bottom half. The split sits roughly at the x-height of
-         * the glyphs at this font size. */}
-        <pattern
-          id="talent-pattern"
-          width="1200"
-          height="220"
-          patternUnits="userSpaceOnUse"
-        >
-          <rect x="0" y="0"   width="1200" height="110" fill="url(#talent-checker)" />
-          <rect x="0" y="110" width="1200" height="110" fill="url(#talent-stripes)" />
-        </pattern>
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.008 0.014"
+            numOctaves="2"
+            seed="7"
+            result="noise"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="noise"
+            scale="38"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
       </defs>
 
-      {/* The wordmark itself — pattern as fill, 1-px white outline.
-       * Rendering twice (filled, then stroked) is required because most
-       * browsers paint stroke OVER fill on a single element, which would
-       * thicken the dark pattern bars at the glyph edges. Two separate
-       * passes keep the outline as a crisp hairline. */}
+      {/* Pattern fill, warped */}
       <text
         x="50%"
         y="55%"
@@ -84,11 +106,16 @@ const TalentMarkSVG = React.forwardRef(function TalentMarkSVG(
         fontWeight="700"
         fontSize="220"
         letterSpacing="-6"
-        fill="url(#talent-pattern)"
-        style={{ paintOrder: "stroke fill" }}
+        fill="url(#talent-stripes-warp)"
+        filter="url(#talent-warp)"
       >
         TALENT
       </text>
+
+      {/* Hairline outline — NOT warped, sits on top so the silhouette
+       *  stays crisp even where the displacement nibbles the edges.
+       *  Two passes (fill then stroke) rather than `stroke` on the
+       *  warped element so the stripe bars don't thicken at the rim. */}
       <text
         x="50%"
         y="55%"
