@@ -20,20 +20,74 @@
  * and let the inner <motion.div> animate opacity/y in isolation.
  */
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import TalentMarkSVG from "./TalentMarkSVG";
+import { ARTISTS } from "@/lib/talent-artists";
 
 const TAGLINE = ["artists", "shaping", "the", "future", "of", "photography"];
 
 export default function Intro({ phase, heroArtist }) {
   const showHero = phase === "intro" || phase === "hero-zoom";
+
+  /* Phase 2: cycle 6 artist hero photos behind TALENT during the intro,
+   * matching foam.org's "flipping pictures" segment. Each photo crossfades
+   * to the next every 1.5 s starting at t=1.8 s (after TALENT + tagline
+   * have landed). The last photo holds until the parent flips phase to
+   * 'gallery', at which point this whole stack unmounts. */
+  const cycleArtists = useMemo(
+    () => ARTISTS.filter((a) => a.hero).slice(0, 6),
+    []
+  );
+  const [cycleIdx, setCycleIdx] = useState(-1); // -1 = pure black
+
+  useEffect(() => {
+    if (phase !== "intro" && phase !== "hero-zoom") return;
+    const start = setTimeout(() => setCycleIdx(0), 1800);
+    return () => clearTimeout(start);
+  }, [phase]);
+
+  useEffect(() => {
+    if (cycleIdx < 0) return;
+    if (cycleIdx >= cycleArtists.length - 1) return; // hold last
+    const next = setTimeout(() => setCycleIdx((i) => i + 1), 1500);
+    return () => clearTimeout(next);
+  }, [cycleIdx, cycleArtists.length]);
+
   return (
     <>
+      {/* Phase 2 cycling photo backdrop — z=1, behind TALENT (z=25).
+       *  AnimatePresence + the changing `key` forces unmount/remount of
+       *  each photo so they cross-fade rather than swap-in-place. */}
+      <AnimatePresence>
+        {showHero && cycleIdx >= 0 && cycleArtists[cycleIdx]?.hero && (
+          <motion.div
+            key={`cycle-${cycleIdx}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 1,
+              backgroundImage: `url(${cycleArtists[cycleIdx].hero})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              pointerEvents: "none",
+            }}
+            aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
+
       {/* TALENT mark — pattern fill.
        *  Outer div owns the centering transform; inner motion.div owns
        *  the entrance animation. Don't merge the two — framer-motion
-       *  would overwrite the centering transform. */}
+       *  would overwrite the centering transform.
+       *  mixBlendMode: difference inverts the mark against whatever
+       *  artist photo is cycling behind it (Phase 2) so the wordmark
+       *  stays legible without a dark overlay. */}
       <div
         style={{
           position: "fixed",
@@ -43,6 +97,7 @@ export default function Intro({ phase, heroArtist }) {
           width: "min(64vw, 1100px)",
           zIndex: 25,
           pointerEvents: "none",
+          mixBlendMode: "difference",
         }}
       >
         <AnimatePresence>
@@ -69,11 +124,12 @@ export default function Intro({ phase, heroArtist }) {
           transform: "translateX(-50%)",
           zIndex: 25,
           color: "#fff",
-          fontSize: "clamp(13px, 1.05vw, 17px)",
+          fontSize: 13,
           lineHeight: 1.5,
-          maxWidth: "24ch",
+          maxWidth: "26ch",
           textAlign: "center",
           pointerEvents: "none",
+          mixBlendMode: "difference",
         }}
       >
         <AnimatePresence>
