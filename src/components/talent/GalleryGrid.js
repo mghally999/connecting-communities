@@ -21,49 +21,52 @@
  * morphs into it on phase transition.
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
 /**
  * Project an artist's authored 3D (x, y, z) coordinate into 2D viewport space.
  *
- * Bug 5: previous formula gave a 0.45→1.2 scale range (≈2.7x ratio).
- * The foam.org reference (interactions/index_canvas0.png) shows a
- * much wider dynamic range — tiny thumbnails ~3vw next to a hero ~25vw
- * (~8x ratio). Widened scale + tilted rotation so the constellation
- * reads as scattered rather than uniformly clustered.
+ * Phase 2 (May 2026 parity sweep): the previous projection pushed cards
+ * near the extreme x values off-screen because it used the raw authored
+ * coordinate. We now normalise (subtract the centroid of all positions)
+ * so the cluster centers on the viewport instead of biasing in whatever
+ * direction the data leans, and we tighten the per-axis multiplier so
+ * the spread comfortably fits inside the viewport without edge-clipping.
  *
  * Authored ranges in talent-artists.js:
  *   x ∈ [-13, 15.5]   y ∈ [-8, 8.5]   z ∈ [-20, 0]
- * Projected:
- *   leftPct = 50 + x*3.2  → ~9% .. ~100% (full viewport)
- *   topPct  = 50 + y*4.6  → ~13% .. ~89%
- *   scale = 0.28 .. 1.15  (closer z = bigger)
- *   rot   = ±2.4° hashed off the slug
+ * Projected after centroid normalisation:
+ *   leftPct = 50 + (x - cx) * 3.6  → ~5% .. ~104%  (tightened from 4.2)
+ *   topPct  = 50 + (y - cy) * 4.2  → ~14% .. ~88%  (tightened from 4.8)
+ *   scale   = 0.7 + ((z + 20)/20) * 0.5  → 0.7 .. 1.2 (closer z = bigger)
+ *   rot     = ±2.4° stable hash of slug
  */
-/* Phase 3 (video review): the earlier x*4.5/y*5.5 spread pushed half
- * the cards off-screen on landing; only ~3 visible without drag. The
- * new video review showed foam's gallery has cards SCATTERED across
- * the viewport with whitespace between them AND with visible size
- * variation (z-depth). Tightened spread to x*4.2/y*4.8 and added a
- * 0.7–1.2 per-card scale variation driven by the authored z value. */
-const PROJ = (artist) => {
+function computeCentroid(arr) {
+  if (arr.length === 0) return { cx: 0, cy: 0 };
+  const xs = arr.map((a) => parseFloat(a.pos3?.x ?? 0));
+  const ys = arr.map((a) => parseFloat(a.pos3?.y ?? 0));
+  const cx = xs.reduce((s, v) => s + v, 0) / xs.length;
+  const cy = ys.reduce((s, v) => s + v, 0) / ys.length;
+  return { cx, cy };
+}
+
+function projectArtist(artist, centroid) {
   const x = parseFloat(artist.pos3?.x ?? 0);
   const y = parseFloat(artist.pos3?.y ?? 0);
   const z = parseFloat(artist.pos3?.z ?? 0);
-  const leftPct = 50 + x * 4.2;
-  const topPct  = 50 + y * 4.8;
+  const leftPct = 50 + (x - centroid.cx) * 3.6;
+  const topPct  = 50 + (y - centroid.cy) * 4.2;
   // z range [-20..0] → t [0..1] → scale [0.7..1.2]
   const t = Math.max(0, Math.min(1, (z + 20) / 20));
   const scale = 0.7 + t * 0.5;
-  // Stable per-slug rotation: hash slug chars to ±2.4°
   const slug = artist.slug || "";
   let h = 0;
   for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
   const rot = ((h % 100) / 100 - 0.5) * 4.8;
   return { leftPct, topPct, scale, rot };
-};
+}
 
 const CARD_W_VW = 8; // base card width in vw — PROJ.scale multiplies this
 
@@ -75,6 +78,14 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
+
+  // Compute the centroid once per artist set. Subtracting it inside the
+  // projection centers the constellation regardless of how the authored
+  // coordinates lean (currently small ~0.16, ~0.53 — but the data could
+  // shift if artists are added/removed and we want the spread to remain
+  // centered).
+  const centroid = useMemo(() => computeCentroid(artists), [artists]);
+  const PROJ = (a) => projectArtist(a, centroid);
 
   return (
     <div
