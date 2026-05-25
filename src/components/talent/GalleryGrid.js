@@ -1,24 +1,13 @@
 "use client";
 
 /**
- * GalleryGrid — 2D scattered thumbnail layout for the 'gallery' phase.
- *
- * Replaces the previous R3F 3D scene because layoutId shared-element
- * morphs only work between DOM elements, not between DOM and WebGL
- * primitives. The hero-zoom entry requires the destination element to
- * be DOM-side, so the gallery had to come back into DOM.
+ * GalleryGrid — 2D scattered DOM thumbnails for the 'gallery' phase.
  *
  * Card positions are projected from each artist's authored 3D coordinate
- * (x, y, z) into 2D viewport space:
- *
- *   leftPct = 50 + x * 2.8
- *   topPct  = 50 + y * 4.0
- *   scale   = clamp(0.6, 1.4 + z * 0.04, 1.2)
- *
- * The primary artist (Rehab Eldalil) sits at (0, 0, 0) → centre, full
- * scale; surrounding artists radiate outward at smaller sizes. The
- * primary card carries layoutId="hero-card" so the intro hero photo
- * morphs into it on phase transition.
+ * (x, y, z) into 2D viewport space (see projectArtist below). The whole
+ * 20-card cluster lives inside one drag wrapper so it pans as a tethered
+ * group; the wrapper also accepts wheel/trackpad input via a shared pair
+ * of motion values.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";

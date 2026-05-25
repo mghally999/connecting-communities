@@ -10,26 +10,20 @@
  * popstate so direct deep-links still work and the browser back button
  * returns to the gallery without a hard page swap.
  *
- *   phase: 'intro' | 'hero-zoom' | 'gallery' | 'portfolio'
+ *   phase: 'intro' | 'gallery' | 'portfolio'
  *
- *     intro       (t=0)     : black bg + foam + TALENT + tagline fading in
- *     hero-zoom   (t=1.6)   : the primary artist's hero photo enters
- *                              centred at 85vw. Same DOM lives here as
- *                              in 'gallery', wrapped in <LayoutGroup>.
- *     gallery     (t=2.4)   : phase flips → framer-motion morphs the
- *                              layoutId="hero-card" element from its
- *                              85vw hero state into its gallery slot
- *                              (scale 1.0 → 0.18, translates simultaneously,
- *                              ~1200ms ease-in-out-cubic).
- *                              Other 19 cards fade+scale in at 150ms stagger.
- *                              Chips fade in at t=3.6.
- *     portfolio  (on click) : url → /talent/<slug> via pushState,
- *                              <Portfolio/> mounts. Its cover spread
- *                              carries layoutId="hero-card" so the
- *                              gallery card morphs INTO the cover hero,
- *                              giving a continuous in-and-out motion.
- *                              Back button (popstate) reverses it.
- */
+ *     intro      : black bg. <Intro/> runs its own 6-photo cycle behind
+ *                  TALENT + tagline. When the cycle finishes (after the
+ *                  primary artist's photo has held alone full-bleed)
+ *                  Intro calls onIntroComplete and we flip to 'gallery'.
+ *                  No layoutId morph; the gallery primary just fades in
+ *                  with the rest.
+ *     gallery    : 20 cards scattered. Hover, drag-with-momentum, and
+ *                  filter overlay all live here.
+ *     portfolio  : url → /talent/<slug> via pushState, <Portfolio/>
+ *                  mounts on top of the gallery (which stays mounted at
+ *                  opacity 0 for snappy popstate back). Back button or
+ *                  Escape returns. */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
@@ -163,9 +157,9 @@ export default function TalentExperience({ initialSlug = null }) {
         <Intro phase={phase} heroArtist={heroArtist} onIntroComplete={handleIntroComplete} />
 
         {/* Gallery — mounted during 'gallery' and stays mounted during
-         * 'portfolio' so the layoutId source/destination both exist when
-         * the dive transition runs. We hide it visually during 'portfolio'
-         * with opacity so the Portfolio cover can take the screen. */}
+         * 'portfolio' so popstate back is instant. We hide it visually
+         * during 'portfolio' with opacity so the Portfolio cover takes
+         * the screen. */}
         <AnimatePresence>
           {(phase === "gallery" || phase === "portfolio") && (
             <motion.div
@@ -271,10 +265,10 @@ export default function TalentExperience({ initialSlug = null }) {
           )}
         </AnimatePresence>
 
-        {/* Portfolio — mounts on phase 'portfolio', morphs in via layoutId.
-         *  onNavigate is wired so the thank-you spread's "view next
-         *  exhibition" pill routes via the same enterPortfolio flow
-         *  (history.pushState + phase swap), not a hard router.push. */}
+        {/* Portfolio — mounts on phase 'portfolio'. onNavigate is wired
+         *  so the thank-you spread's "view next exhibition" pill routes
+         *  via the same enterPortfolio flow (history.pushState + phase
+         *  swap), not a hard router.push. */}
         <AnimatePresence>
           {phase === "portfolio" && activeArtist && (
             <Portfolio
