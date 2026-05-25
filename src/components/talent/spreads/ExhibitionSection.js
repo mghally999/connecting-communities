@@ -46,8 +46,18 @@ function vh(v) {
 }
 
 function ImageBlock({ s }) {
+  // Short-circuit: when the asset extraction couldn't resolve a local
+  // file for this section, src is null. Rendering <img src={null}> shows
+  // the alt text as a bare string with no image — looks like a broken
+  // image. Skip those blocks entirely.
+  if (!s.src) return null;
+
   if (s.free) {
-    // Free-positioned overlay
+    // Free-positioned overlay. Pin width to whatever fraction of the
+    // viewport was authored — fall back to a sane default so the image
+    // always has a non-zero bounding box (otherwise <img> with no parent
+    // width collapses to intrinsic size, which on a position:absolute
+    // overlay often ends up zero).
     return (
       <div
         className="ex-image ex-image-free"
@@ -55,14 +65,24 @@ function ImageBlock({ s }) {
           position: "absolute",
           top: pct(s.top),
           left: pct(s.left),
-          width: s.width ? pct(s.width) : undefined,
-          height: s.height ? vh(s.height) : undefined,
+          width: s.width ? pct(s.width) : "40%",
+          height: s.height ? vh(s.height) : "auto",
           marginTop: s.marginTop ? vh(s.marginTop) : undefined,
           zIndex: 1,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={s.src} alt={s.alt || ""} draggable={false} />
+        <img
+          src={s.src}
+          alt={s.alt || ""}
+          draggable={false}
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
         {s.caption && <figcaption>{s.caption}</figcaption>}
       </div>
     );
@@ -219,6 +239,9 @@ function VideoBlock({ s }) {
 }
 
 function PodcastBlock({ s }) {
+  // No src → don't render the empty audio shell. Same rationale as
+  // ImageBlock: skip rather than show a broken player.
+  if (!s.src) return null;
   return (
     <section
       className="ex-podcast"
