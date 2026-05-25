@@ -154,16 +154,11 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         return (
           <motion.button
             key={a.slug}
-            layoutId={isPrimary ? "hero-card" : undefined}
             onPointerEnter={() => onHover?.(a)}
             onPointerLeave={() => onLeave?.(a)}
             onClick={() => onPick?.(a)}
             aria-label={`${a.exhibition || a.name} by ${a.name}`}
-            initial={
-              isPrimary
-                ? false  // primary card is morphed in by layoutId, skip initial
-                : { opacity: 0, scale: 0.85, rotate: 0 }
-            }
+            initial={{ opacity: 0, scale: 0.85, rotate: 0 }}
             animate={{
               /* Phase 4 (video review): hovered card pops to 1.8x
                * (was 1.08) with a spring; siblings vanish fully

@@ -56,24 +56,17 @@ export default function TalentExperience({ initialSlug = null }) {
   const [hoveredSlug, setHovered] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null);
 
-  /* ---------- entry timeline (intro → hero-zoom → gallery) ----------
-   * Per-phase scheduling. The previous version queued both timers in a
-   * single effect with [phase] as a dep: when t1 fired and flipped to
-   * 'hero-zoom', the effect re-ran and the cleanup cancelled t2, so we
-   * never advanced to 'gallery'. Splitting one timer per phase lets the
-   * effect re-run cleanly: 'intro' schedules → 'hero-zoom', then
-   * 'hero-zoom' schedules → 'gallery'. */
+  /* ---------- entry timeline (intro → gallery) ----------
+   * The intro phase now owns its own timeline via the 6-photo cycle
+   * inside <Intro/>. It calls onIntroComplete when the last photo has
+   * held full-bleed (post TALENT fade-out) and we flip straight to
+   * 'gallery'. The intermediate 'hero-zoom' phase is gone — there is
+   * no longer a single hero card that morphs into the gallery via
+   * layoutId; the gallery primary just fades in alongside the others. */
 
-  useEffect(() => {
-    if (phase === "intro") {
-      const t = setTimeout(() => setPhase("hero-zoom"), 100);
-      return () => clearTimeout(t);
-    }
-    if (phase === "hero-zoom") {
-      const t = setTimeout(() => setPhase("gallery"), 2300);
-      return () => clearTimeout(t);
-    }
-  }, [phase]);
+  const handleIntroComplete = useCallback(() => {
+    setPhase((p) => (p === "intro" ? "gallery" : p));
+  }, []);
 
   /* ---------- history.pushState / popstate ---------- */
 
@@ -127,12 +120,12 @@ export default function TalentExperience({ initialSlug = null }) {
   /* ---------- bg colour (hover accent crossfade) ---------- */
 
   /* bg target precedence:
-   *   intro / hero-zoom  → black (the photo cycle layer sits on top)
+   *   intro              → black (the photo cycle layer sits on top)
    *   hover any card     → that artist's accent
    *   filter active (no hover) → BLACK (network-graph mode, per Phase 6)
    *   gallery default    → white */
   let bgTarget;
-  if (phase === "intro" || phase === "hero-zoom") {
+  if (phase === "intro") {
     bgTarget = "#000000";
   } else if (hoveredArtist) {
     bgTarget = hoveredArtist.accent;
@@ -162,10 +155,12 @@ export default function TalentExperience({ initialSlug = null }) {
           backgroundColor: bgTarget,
         }}
       >
-        <FoamSidebar state={phase === "intro" || phase === "hero-zoom" ? "intro" : phase === "portfolio" ? "portfolio" : "gallery"} />
+        <FoamSidebar state={phase === "intro" ? "intro" : phase === "portfolio" ? "portfolio" : "gallery"} />
 
-        {/* Intro typography (only during intro/hero-zoom) */}
-        <Intro phase={phase} heroArtist={heroArtist} />
+        {/* Intro typography + 6-photo cycle (only during intro). Signals
+         *  back via onIntroComplete when the cycle finishes; the parent
+         *  flips phase → 'gallery' which crossfades the cycle photo out. */}
+        <Intro phase={phase} heroArtist={heroArtist} onIntroComplete={handleIntroComplete} />
 
         {/* Gallery — mounted during 'gallery' and stays mounted during
          * 'portfolio' so the layoutId source/destination both exist when
