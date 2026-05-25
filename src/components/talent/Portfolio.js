@@ -23,19 +23,142 @@
  * "inside doesn't fit" bug from the earlier vertical-scroll version.
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import ExhibitionSection from "./spreads/ExhibitionSection";
 import { nextArtist } from "@/lib/talent-artists";
 
+/* Phase 4 — collage layout templates. Each layout consumes `count`
+ * consecutive image sections and arranges them as absolutely-positioned
+ * <img> elements inside a 100vw × 100vh spread. Slot dimensions are
+ * percentages of the spread so they scale with viewport. Mix is rotated
+ * across spreads via (spreadIdx % LAYOUTS.length) so a portfolio with
+ * many images doesn't repeat the same arrangement back-to-back. */
+const SPREAD_LAYOUTS = [
+  { count: 2, slots: [
+    { left: "4%",  top: "8%",  width: "42%", height: "84%" },
+    { left: "58%", top: "18%", width: "34%", height: "62%" },
+  ]},
+  { count: 3, slots: [
+    { left: "3%",  top: "12%", width: "28%", height: "58%" },
+    { left: "36%", top: "30%", width: "28%", height: "56%" },
+    { left: "70%", top: "10%", width: "26%", height: "76%" },
+  ]},
+  { count: 2, slots: [
+    { left: "10%", top: "10%", width: "56%", height: "80%" },
+    { left: "72%", top: "12%", width: "22%", height: "30%" },
+  ]},
+  { count: 4, slots: [
+    { left: "5%",  top: "10%", width: "30%", height: "42%" },
+    { left: "40%", top: "12%", width: "24%", height: "40%" },
+    { left: "68%", top: "18%", width: "27%", height: "38%" },
+    { left: "18%", top: "56%", width: "38%", height: "38%" },
+  ]},
+];
+
+/* Group consecutive image sections into collage spreads; non-image
+ * sections (prose, quote, audio, video, embed, viewer) become their
+ * own single-section spread that defers to ExhibitionSection's existing
+ * renderer. Empty prose sections are dropped — same filter as before. */
+function buildSpreads(rawSections) {
+  const spreads = [];
+  let imageBuffer = [];
+  let pickIdx = 0;
+
+  const flushImages = () => {
+    while (imageBuffer.length > 0) {
+      if (imageBuffer.length === 1) {
+        // One stray image: render it large and centered.
+        spreads.push({
+          kind: "collage",
+          layout: { count: 1, slots: [
+            { left: "15%", top: "10%", width: "70%", height: "80%" },
+          ]},
+          images: imageBuffer.splice(0, 1),
+        });
+        continue;
+      }
+      // Pick a layout whose count is ≤ what's left. Cycle through to vary.
+      let candidates = SPREAD_LAYOUTS.filter((l) => l.count <= imageBuffer.length);
+      if (candidates.length === 0) candidates = [SPREAD_LAYOUTS[0]];
+      const layout = candidates[pickIdx % candidates.length];
+      pickIdx++;
+      const consumed = imageBuffer.splice(0, layout.count);
+      spreads.push({ kind: "collage", layout, images: consumed });
+    }
+  };
+
+  rawSections.forEach((s) => {
+    if (s.kind === "image" && s.src) {
+      imageBuffer.push({ src: s.src, alt: s.alt || "", caption: s.caption });
+      return;
+    }
+    if (s.kind === "images") {
+      (s.items || [])
+        .filter((it) => it && it.src)
+        .forEach((it) =>
+          imageBuffer.push({ src: it.src, alt: it.alt || "", caption: it.caption })
+        );
+      return;
+    }
+    // Skip empty prose sections so they don't add a blank spread.
+    if (s.kind === "prose" && (!s.html || s.html === "<p></p>")) return;
+    flushImages();
+    spreads.push({ kind: "other", section: s });
+  });
+  flushImages();
+  return spreads;
+}
+
+function CollageSpread({ spread, background, backgroundImage }) {
+  return (
+    <section
+      style={{
+        flex: "0 0 100vw",
+        height: "100vh",
+        position: "relative",
+        overflow: "hidden",
+        background,
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {spread.images.map((img, i) => {
+        const slot = spread.layout.slots[i];
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={i}
+            src={img.src}
+            alt={img.alt || ""}
+            draggable={false}
+            loading="lazy"
+            style={{
+              position: "absolute",
+              left: slot.left,
+              top: slot.top,
+              width: slot.width,
+              height: slot.height,
+              objectFit: "cover",
+              objectPosition: "center",
+              display: "block",
+            }}
+          />
+        );
+      })}
+    </section>
+  );
+}
+
 export default function Portfolio({ artist, onClose, onNavigate }) {
   const next = nextArtist(artist.slug);
-  const sections = (artist.sections || []).filter((s) => {
-    if (s.kind === "prose" && (!s.html || s.html === "<p></p>")) return false;
-    return true;
-  });
-  // Cover + N sections + thank-you = total spread count
-  const spreadCount = 2 + sections.length;
+  const spreads = useMemo(
+    () => buildSpreads(artist.sections || []),
+    [artist.sections]
+  );
+  // Cover + N spreads + thank-you = total slot count
+  const spreadCount = 2 + spreads.length;
 
   const wrapperRef = useRef(null);
   const trackRef = useRef(null);
@@ -208,24 +331,40 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
           </div>
         </section>
 
-        {/* One section per 100vw spread. Inner content is height 100%
-         *  with overflow hidden so the spread never grows past viewport. */}
-        {sections.map((s, i) => (
-          <section
-            key={i}
-            style={{
-              flex: "0 0 100vw",
-              height: "100vh",
-              position: "relative",
-              overflow: "hidden",
-              padding: "8vh 0",
-            }}
-          >
-            <div style={{ height: "100%", overflow: "hidden" }}>
-              <ExhibitionSection section={s} slug={artist.slug} idx={i} />
-            </div>
-          </section>
-        ))}
+        {/* Phase 4 — spreads are either collage layouts (multiple images
+         *  arranged absolutely within the 100vw × 100vh slot) or "other"
+         *  spreads that defer to ExhibitionSection for prose/quote/audio/
+         *  video/embed/viewer. Each spread is height: 100vh strictly with
+         *  overflow: hidden so the spread never grows past viewport. */}
+        {spreads.map((sp, i) => {
+          if (sp.kind === "collage") {
+            return (
+              <CollageSpread
+                key={`spread-${i}`}
+                spread={sp}
+                background={artist.accent}
+                backgroundImage={artist.backgroundTexture}
+              />
+            );
+          }
+          return (
+            <section
+              key={`spread-${i}`}
+              style={{
+                flex: "0 0 100vw",
+                height: "100vh",
+                position: "relative",
+                overflow: "hidden",
+                padding: "8vh 0",
+                background: artist.accent,
+              }}
+            >
+              <div style={{ height: "100%", overflow: "hidden" }}>
+                <ExhibitionSection section={sp.section} slug={artist.slug} idx={i} />
+              </div>
+            </section>
+          );
+        })}
 
         {/* Thank-you spread (final 100vw slot) */}
         <section
