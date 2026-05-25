@@ -193,6 +193,9 @@ export default function TalentExperience({ initialSlug = null }) {
          *  portfolio →" pill that used to live inside GalleryGrid.
          *  Uses mix-blend-mode: difference so the white text inverts
          *  against any artist-accent background colour. */}
+        {/* Phase 4 (video review): hover caption uses the artist's
+         *  frameHighlightColor (accentText), centred at bottom of the
+         *  viewport. zIndex 60 keeps it above the chip rail. */}
         <AnimatePresence>
           {phase === "gallery" && hoveredArtist && (
             <motion.div
@@ -203,14 +206,13 @@ export default function TalentExperience({ initialSlug = null }) {
               transition={{ duration: 0.18, ease: "easeOut" }}
               style={{
                 position: "fixed",
-                bottom: 80,
+                bottom: 64,
                 left: "50%",
                 transform: "translateX(-50%)",
                 textAlign: "center",
                 pointerEvents: "none",
-                mixBlendMode: "difference",
-                color: "#fff",
-                zIndex: 50,
+                color: hoveredArtist.accentText || "#fff",
+                zIndex: 60,
               }}
             >
               <p style={{ fontStyle: "italic", fontSize: 22, margin: 0, lineHeight: 1.1 }}>
@@ -220,6 +222,45 @@ export default function TalentExperience({ initialSlug = null }) {
                 {hoveredArtist.name}
               </p>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Phase 4: × close button on the right edge of the viewport,
+         *  visible only when an artist is hovered. Clicking it clears
+         *  the hover (and the bg crossfade reverts). Matches foam's
+         *  mid-right dismiss button in the hover state frames. */}
+        <AnimatePresence>
+          {phase === "gallery" && hoveredArtist && (
+            <motion.button
+              key="hover-close"
+              type="button"
+              onClick={() => setHovered(null)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              aria-label="Clear hover"
+              style={{
+                position: "fixed",
+                right: 32,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 60,
+                width: 36,
+                height: 36,
+                borderRadius: 4,
+                border: "1px solid currentColor",
+                background: "transparent",
+                color: hoveredArtist.accentText || "#fff",
+                fontSize: 18,
+                display: "grid",
+                placeItems: "center",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              ×
+            </motion.button>
           )}
         </AnimatePresence>
 

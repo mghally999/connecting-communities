@@ -123,15 +123,19 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
                 : { opacity: 0, scale: 0.85, rotate: 0 }
             }
             animate={{
-              // Phase 6: foam.org hover hides siblings completely (not
-              // just dims). When ANY card is hovered, others go to 0.
+              /* Phase 4 (video review): hovered card pops to 1.8x
+               * (was 1.08) with a spring; siblings vanish fully
+               * (opacity 0, also pointerEvents none so they can't
+               * be raycast). */
               opacity: isDimmed ? 0 : 1,
-              scale: isHovered ? 1.08 : 1,
+              scale: isHovered ? 1.8 : 1,
               rotate: rot,
             }}
             transition={{
               opacity: { duration: isDimmed ? 0.3 : 0.4, ease: "easeOut" },
-              scale: { duration: 0.3, ease: [0.22, 1, 0.36, 1] },
+              scale: isHovered
+                ? { type: "spring", stiffness: 200, damping: 26 }
+                : { duration: 0.3, ease: [0.22, 1, 0.36, 1] },
               rotate: { duration: 0.7, ease: "easeOut" },
               layout: { duration: 1.2, ease: [0.65, 0, 0.35, 1] },
               delay: isPrimary ? 0 : 0.05 * (i % 8),
@@ -151,7 +155,10 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
               border: 0,
               background: "transparent",
               cursor: "pointer",
-              pointerEvents: "auto",  // overrides drag wrapper's grab cursor on hover
+              /* Dimmed siblings opt OUT of pointer events so the
+               * hovered card stays the only target — prevents
+               * accidental ghost-click on a 0-opacity neighbour. */
+              pointerEvents: isDimmed ? "none" : "auto",
               willChange: "transform, opacity",
               zIndex: isHovered ? 20 : isPrimary ? 12 : 10,
             }}
