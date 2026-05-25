@@ -42,24 +42,25 @@ import { placeholderImage } from "@/lib/talent-placeholder";
  *   scale = 0.28 .. 1.15  (closer z = bigger)
  *   rot   = ±2.4° hashed off the slug
  */
+/* Phase 5: widen the position spread (x*4.5, y*5.5) so cards push out
+ * to the viewport edges instead of clustering centre. Per-card scale
+ * and primary-multiplier removed — all cards are now equal size, per
+ * foam.org's reference (screenshots/index_y800.png + drag_*.png show
+ * a uniform constellation, not a hero+satellites layout). */
 const PROJ = (artist) => {
   const x = parseFloat(artist.pos3?.x ?? 0);
   const y = parseFloat(artist.pos3?.y ?? 0);
-  const z = parseFloat(artist.pos3?.z ?? 0);
-  const leftPct = 50 + x * 3.2;
-  const topPct  = 50 + y * 4.6;
-  // z maps -20..0 → 0.28..1.15 (linear)
-  const t = Math.max(0, Math.min(1, (z + 20) / 20));
-  const scale = 0.28 + t * 0.87;
-  // stable per-slug rotation: hash slug chars to ±2.4°
+  const leftPct = 50 + x * 4.5;
+  const topPct  = 50 + y * 5.5;
+  // Stable per-slug rotation: hash slug chars to ±2.4°
   const slug = artist.slug || "";
   let h = 0;
   for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
   const rot = ((h % 100) / 100 - 0.5) * 4.8;
-  return { leftPct, topPct, scale, rot };
+  return { leftPct, topPct, rot };
 };
 
-const CARD_W_VW = 14; // base card width in vw — primary card is bigger via scale
+const CARD_W_VW = 8; // base card width in vw — uniform across all cards
 
 export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick }) {
   // Lock body scroll while the gallery is mounted; thumbnails are positioned
@@ -80,14 +81,33 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         overflow: "hidden",
       }}
     >
+      {/* Drag-to-pan canvas wrapper. The wrapper translates as a whole
+       * unit when the user drags; individual cards keep their absolute
+       * positioning inside it. Per foam.org reference (see
+       * foam-mega-run/foam-mega/site/interactions/index_drag_*.png),
+       * the gallery is a finite-bounded canvas you can shove around. */}
+      <motion.div
+        drag
+        dragMomentum={false}
+        dragElastic={0.05}
+        dragConstraints={{ left: -800, right: 800, top: -400, bottom: 400 }}
+        whileTap={{ cursor: "grabbing" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          cursor: "grab",
+        }}
+      >
       {artists.map((a, i) => {
         const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
-        const { leftPct, topPct, scale, rot } = PROJ(a);
+        const { leftPct, topPct, rot } = PROJ(a);
         const isHovered = hoveredSlug === a.slug;
         const isDimmed  = hoveredSlug && !isHovered;
         const isPrimary = !!a.isPrimary;
 
-        const cardWidth = `${CARD_W_VW * scale * (isPrimary ? 1.8 : 1)}vw`;
+        // Uniform card width — primary-multiplier removed (Phase 5).
+        const cardWidth = `${CARD_W_VW}vw`;
         return (
           <motion.button
             key={a.slug}
@@ -128,6 +148,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
               border: 0,
               background: "transparent",
               cursor: "pointer",
+              pointerEvents: "auto",  // overrides drag wrapper's grab cursor on hover
               willChange: "transform, opacity",
               zIndex: isHovered ? 20 : isPrimary ? 12 : 10,
             }}
@@ -176,6 +197,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
           </motion.button>
         );
       })}
+      </motion.div>
     </div>
   );
 }
