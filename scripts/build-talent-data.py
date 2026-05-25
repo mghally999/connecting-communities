@@ -53,33 +53,54 @@ def storyblok_to_local(url):
 
 ASSET_DIRS = ["images", "media", "fetch", "xhr", "other"]
 
+# Multiple scrape roots in priority order. Each root may store the
+# captured asset under a different folder convention; the unified hash
+# index below abstracts over that.
+SCRAPE_ROOTS = [
+    ROOT / "foam_source",                  # WACZ extraction (richest, 39k files)
+    ROOT / "foam-mega-run/foam-mega/site", # Mega Playwright (704 MB)
+    ROOT / "foam-deep/site",               # Original deep Playwright (563 MB)
+]
+
 # Build a one-shot index of all asset filenames so we can substring-match
-# instead of guessing every URL rewrite Foam applied.
-_INDEX = {}
+# instead of guessing every URL rewrite Foam applied. Walked once at
+# import time; later lookups are O(1) keyed by the storyblok content hash.
+_INDEX = {}        # legacy per-dir buckets (foam-deep flat layout)
+_HASH_INDEX = {}   # 10-hex-char hash → first matching path across all roots
 def _build_index():
-    if _INDEX: return
+    if _INDEX or _HASH_INDEX: return
+    # Legacy: foam-deep flat assets/ layout
     for d in ASSET_DIRS:
         adir = SITE / "assets" / d
         if not adir.exists(): continue
         for f in adir.iterdir():
             if f.is_file():
                 _INDEX.setdefault(d, []).append(f)
+    # Unified hash index across all scrape roots. Storyblok URLs always
+    # carry a 10-hex-char content hash; we scan every path for one and
+    # remember the first file that contains it. Later roots in
+    # SCRAPE_ROOTS only win for hashes the earlier roots didn't cover.
+    hash_re = re.compile(r"([0-9a-f]{10})")
+    for root in SCRAPE_ROOTS:
+        if not root.exists(): continue
+        for p in root.rglob("*"):
+            if not p.is_file(): continue
+            # Skip giant non-asset files (WARC archives etc.)
+            if p.suffix in {".warc", ".gz", ".wacz", ".jsonl", ".har"}: continue
+            for chash in hash_re.findall(str(p)):
+                _HASH_INDEX.setdefault(chash, p)
 _build_index()
 
 def find_local_asset(url):
     """Match a Storyblok URL to its local scrape file.
 
     Storyblok URLs all share a unique 10-hex-char content hash in the path
-    (e.g. .../f/113697/2000x1333/fcc412677f/the-longing.jpeg). Even after
-    Foam rewrites the URL through /_next/image?url=..., url-encodes it,
-    and the scraper sanitizes the query, that hash survives intact. So:
-    walk the file index once and pick the first file whose name contains
-    the hash.
+    (e.g. .../f/113697/2000x1333/fcc412677f/the-longing.jpeg). We search
+    every scrape root (foam_source, foam-mega-run, foam-deep) for any
+    file whose path contains that hash and return the first match.
     """
     if not url: return None
     if not isinstance(url, str):
-        # Some Storyblok fields hand us an asset dict {filename: "..."} instead
-        # of the bare URL string. Try to unwrap.
         if isinstance(url, dict) and url.get("filename"):
             url = url["filename"]
         else:
@@ -93,7 +114,10 @@ def find_local_asset(url):
                 if tail and tail in f.name: return f
         return None
     chash, name_tail = m.group(1), m.group(2)
-    # Prefer matches in 'images' / 'media' over xhr/fetch/other
+    # First, the unified hash index across all scrape roots (richest)
+    if chash in _HASH_INDEX:
+        return _HASH_INDEX[chash]
+    # Fallback: the legacy flat-dir scan in foam-deep
     for d in ["images", "media", "fetch", "xhr", "other"]:
         for f in _INDEX.get(d, []):
             if chash in f.name:
