@@ -1,0 +1,5 @@
+{
+  "count": 0,
+  "entries": [],
+  "note": "Current /talent is pure DOM + framer-motion. No three.js / R3F / Canvas elements are imported. Foam.org's live /talent-2024 IS WebGL (three.js r160) but this project intentionally uses framer-motion layoutId morphs instead (layoutId requires DOM siblings, can't cross WebGL boundary)."
+}

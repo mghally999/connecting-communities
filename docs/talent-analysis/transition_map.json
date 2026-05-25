@@ -1,0 +1,77 @@
+{
+  "count": 13,
+  "gsap_calls": [
+    {
+      "file": "src/components/talent/FoamSidebar.js",
+      "line": 35,
+      "snippet": "gsap.to(el, {"
+    }
+  ],
+  "css": [
+    {
+      "kind": "keyframes",
+      "name": "introBob",
+      "css": "@keyframes introBob {\n  0%, 100% { transform: translate(-50%, 0); }\n  50%      { transform: translate(-50%, 8px); }\n}"
+    },
+    {
+      "kind": "transition",
+      "line": 91,
+      "value": "color 380ms cubic-bezier(0.22, 1, 0.36, 1)"
+    },
+    {
+      "kind": "transition",
+      "line": 184,
+      "value": "background 480ms cubic-bezier(0.22, 1, 0.36, 1)"
+    },
+    {
+      "kind": "transition",
+      "line": 208,
+      "value": "filter 360ms cubic-bezier(0.22, 1, 0.36, 1),\n              opacity 360ms cubic-bezier(0.22, 1, 0.36, 1)"
+    },
+    {
+      "kind": "transition",
+      "line": 242,
+      "value": "opacity 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+    },
+    {
+      "kind": "transition",
+      "line": 260,
+      "value": "opacity 280ms ease"
+    },
+    {
+      "kind": "transition",
+      "line": 307,
+      "value": "background 220ms ease, color 220ms ease, border-color 220ms ease"
+    },
+    {
+      "kind": "transition",
+      "line": 376,
+      "value": "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)"
+    },
+    {
+      "kind": "transition",
+      "line": 435,
+      "value": "stroke-dashoffset 80ms linear"
+    },
+    {
+      "kind": "transition",
+      "line": 488,
+      "value": "background 280ms ease, color 280ms ease, border-color 280ms ease"
+    },
+    {
+      "kind": "transition",
+      "line": 519,
+      "value": "none"
+    },
+    {
+      "kind": "transition",
+      "line": 521,
+      "value": "none"
+    },
+    {
+      "kind": "animation",
+      "line": 105,
+      "value": "introBob 2.2s ease-in-out infinite"
+    }
+  ]
+}

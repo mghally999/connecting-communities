@@ -4,7 +4,7 @@ import ThemeProvider from "@/styles/ThemeProvider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-import { siteSettings } from "@/lib/site-content";
+import { getSettings } from "@/lib/sanity-content";
 
 /**
  * Stolzl is the brand typeface (per client). We ship the two weights they
@@ -75,7 +75,12 @@ export const metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  /* Single Sanity round-trip per request to populate the header nav,
+   * footer columns, and brand copy. Falls back to the static archive
+   * if Sanity is unreachable so the site never goes blank. */
+  const siteSettings = await getSettings();
+
   return (
     /* suppressHydrationWarning: a class browser extensions commonly
      * inject (Dark Reader adds `dark`, ColorZilla touches `style`, etc.)

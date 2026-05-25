@@ -1,0 +1,138 @@
+{
+  "count": 13,
+  "entries": [
+    {
+      "file": "src/components/talent/CategoryChipsHud.js",
+      "line": 93,
+      "component": "motion.div",
+      "props": {
+        "initial": "{ opacity: 0, y: 6 }",
+        "animate": "{ opacity: visible ? 1 : 0, y: visible ? 0 : 6 }",
+        "transition": "{ delay: visible ? 3.6 : 0, duration: 0.45, ease: \"easeOut\" }"
+      }
+    },
+    {
+      "file": "src/components/talent/GalleryGrid.js",
+      "line": 89,
+      "component": "motion.div",
+      "props": {
+        "drag": "true",
+        "dragMomentum": "false",
+        "dragElastic": "0.05",
+        "dragConstraints": "{ left: -800, right: 800, top: -400, bottom: 400 }",
+        "whileTap": "{ cursor: \"grabbing\" }"
+      }
+    },
+    {
+      "file": "src/components/talent/GalleryGrid.js",
+      "line": 112,
+      "component": "motion.button",
+      "props": {
+        "layoutId": "isPrimary ? \"hero-card\" : undefined"
+      }
+    },
+    {
+      "file": "src/components/talent/Intro.js",
+      "line": 50,
+      "component": "motion.div",
+      "props": {
+        "initial": "{ opacity: 0, y: 24 }",
+        "animate": "{ opacity: 1, y: 0 }",
+        "exit": "{ opacity: 0, y: -16, scale: 0.96 }",
+        "transition": "{ delay: 0.4, duration: 0.85, ease: [0.16, 1, 0.3, 1] }"
+      }
+    },
+    {
+      "file": "src/components/talent/Intro.js",
+      "line": 116,
+      "component": "motion.div",
+      "props": {
+        "layoutId": "hero-card",
+        "initial": "{ opacity: 0 }",
+        "animate": "{ opacity: 1 }",
+        "transition": "{ delay: 1.6, duration: 0.6, ease: [0.22, 1, 0.36, 1] }"
+      }
+    },
+    {
+      "file": "src/components/talent/Intro.js",
+      "line": 93,
+      "component": "motion.span",
+      "props": {
+        "variants": "{\n                    hidden: { opacity: 0, y: 8 },\n                    show: { opacity: 1, y: 0, transition: { duration: 0.42 } },\n                  }",
+        "transition": "true"
+      }
+    },
+    {
+      "file": "src/components/talent/Intro.js",
+      "line": 81,
+      "component": "motion.p",
+      "props": {
+        "initial": "hidden",
+        "animate": "show",
+        "exit": "hidden",
+        "variants": "{\n                hidden: { opacity: 0 },\n                show: { opacity: 1, transition: { delay: 0.8, staggerChildren: 0.04 } },\n              }",
+        "transition": "true"
+      }
+    },
+    {
+      "file": "src/components/talent/Portfolio.js",
+      "line": 18,
+      "component": "motion.div",
+      "props": {
+        "layoutId": "hero-card"
+      }
+    },
+    {
+      "file": "src/components/talent/Portfolio.js",
+      "line": 46,
+      "component": "motion.div",
+      "props": {
+        "initial": "{ opacity: 0 }",
+        "animate": "{ opacity: 1 }",
+        "exit": "{ opacity: 0 }",
+        "transition": "{ duration: 0.4, ease: \"easeOut\" }"
+      }
+    },
+    {
+      "file": "src/components/talent/Portfolio.js",
+      "line": 76,
+      "component": "motion.div",
+      "props": {
+        "layoutId": "hero-card",
+        "transition": "{ duration: 0.7, ease: [0.5, 0, 0.75, 0] }"
+      }
+    },
+    {
+      "file": "src/components/talent/TalentExperience.js",
+      "line": 136,
+      "component": "motion.div",
+      "props": {
+        "animate": "{ backgroundColor: bgTarget }",
+        "transition": "{ duration: 0.4, ease: \"easeOut\" }",
+        "initial": "true"
+      }
+    },
+    {
+      "file": "src/components/talent/TalentExperience.js",
+      "line": 165,
+      "component": "motion.div",
+      "props": {
+        "initial": "{ opacity: 0 }",
+        "animate": "{ opacity: phase === \"portfolio\" ? 0 : 1 }",
+        "exit": "{ opacity: 0 }",
+        "transition": "{ duration: 0.45, ease: \"easeOut\" }"
+      }
+    },
+    {
+      "file": "src/components/talent/TalentExperience.js",
+      "line": 198,
+      "component": "motion.div",
+      "props": {
+        "initial": "{ opacity: 0, y: 8 }",
+        "animate": "{ opacity: 1, y: 0 }",
+        "exit": "{ opacity: 0, y: 8 }",
+        "transition": "{ duration: 0.18, ease: \"easeOut\" }"
+      }
+    }
+  ]
+}

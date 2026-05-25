@@ -28,6 +28,14 @@ tmp_talent_artists.json
 *.log
 npm-debug.log*
 
+# Local frontend archives (85 MB tarballs — keep on disk, not in git)
+archives/
+Archive.zip
+
+# Env files (Next.js convention — never commit secrets)
+.env*.local
+.env.local
+
 # IDE
 .vscode
 .idea
