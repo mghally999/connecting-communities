@@ -398,43 +398,60 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
               <p style={{ marginTop: 48, fontSize: 16, opacity: 0.8 }}>
                 next: {next.name}
               </p>
-              {/* Phase 7 styling: white pill with 1px black border;
-               *  small black square LEFT decoration + black eye icon RIGHT. */}
+              {/* Phase 6 — view-next button parity with foam.org:
+               *  white pill outlined 1.5px black; full-height solid
+               *  black square on the LEFT; "view next exhibition"
+               *  centered text; black eye icon on the RIGHT. */}
               <button
                 type="button"
                 onClick={() => onNavigate?.(next)}
                 style={{
                   marginTop: 24,
-                  height: 48,
-                  padding: "0 20px 0 0",
-                  borderRadius: 9999,
-                  background: "#fff",
-                  color: "#000",
-                  border: "1px solid #000",
                   display: "inline-flex",
-                  alignItems: "center",
-                  gap: 14,
+                  alignItems: "stretch",
+                  background: "#fff",
+                  border: "1.5px solid #111",
+                  borderRadius: 9999,
+                  padding: 0,
+                  overflow: "hidden",
                   cursor: "pointer",
-                  fontSize: 14,
-                  letterSpacing: "0.04em",
+                  fontFamily: "inherit",
                 }}
               >
                 <span
                   aria-hidden="true"
-                  style={{
-                    width: 36,
-                    height: 36,
-                    background: "#000",
-                    borderRadius: "9999px 0 0 9999px",
-                    margin: 0,
-                  }}
+                  style={{ width: 44, background: "#111" }}
                 />
-                <span style={{ flex: 1 }}>view next exhibition</span>
-                <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
-                  <path d="M1 7 C 3.5 1.5, 14.5 1.5, 17 7 C 14.5 12.5, 3.5 12.5, 1 7 Z"
-                    stroke="#000" strokeWidth="1.4" />
-                  <circle cx="9" cy="7" r="2.2" fill="#000" />
-                </svg>
+                <span
+                  style={{
+                    padding: "12px 20px",
+                    color: "#111",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  view next exhibition
+                </span>
+                <span
+                  style={{
+                    padding: "12px 18px 12px 0",
+                    color: "#111",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                  aria-hidden="true"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M1 8 C 3 3, 13 3, 15 8 C 13 13, 3 13, 1 8 Z"
+                      stroke="#111"
+                      strokeWidth="1.3"
+                    />
+                    <circle cx="8" cy="8" r="2.4" fill="#111" />
+                  </svg>
+                </span>
               </button>
             </>
           )}
