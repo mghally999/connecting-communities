@@ -1,37 +1,33 @@
 "use client";
 
 /**
- * GalleryGrid — 2D scattered DOM thumbnails for the 'gallery' phase.
+ * GalleryGrid — 3D draggable cluster of 20 artist thumbnails.
  *
- * Card positions are projected from each artist's authored 3D coordinate
- * (x, y, z) into 2D viewport space (see projectArtist below). The whole
- * 20-card cluster lives inside one drag wrapper so it pans as a tethered
- * group; the wrapper also accepts wheel/trackpad input via a shared pair
- * of motion values.
+ * Each card is positioned in 3D space using its authored (x, y, z)
+ * coordinate (translate3d on a wrapper, perspective on the parent).
+ * The whole cluster lives inside one rotating motion.div whose
+ * rotateX / rotateY are driven by pointer-drag deltas — feels like
+ * spinning a planet. On release the rotation decays with inertia;
+ * if the user keeps gesturing, the rotation accumulates without limit
+ * (no constraints — the planet can spin freely).
+ *
+ * The data file's pos3 is already a real 3D scatter (not a sphere
+ * projection); using the z value as-is gives genuine depth — cards
+ * with z=0 sit at the front of the cluster, z=-20 sit ~600 px back.
+ * Cards do not billboard; they tilt with the rotation, which is what
+ * makes it read as a 3D cluster rather than a flat dial.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { animate, motion, useMotionValue } from "framer-motion";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
-/**
- * Project an artist's authored 3D (x, y, z) coordinate into 2D viewport space.
- *
- * Phase 2 (May 2026 parity sweep): the previous projection pushed cards
- * near the extreme x values off-screen because it used the raw authored
- * coordinate. We now normalise (subtract the centroid of all positions)
- * so the cluster centers on the viewport instead of biasing in whatever
- * direction the data leans, and we tighten the per-axis multiplier so
- * the spread comfortably fits inside the viewport without edge-clipping.
- *
- * Authored ranges in talent-artists.js:
- *   x ∈ [-13, 15.5]   y ∈ [-8, 8.5]   z ∈ [-20, 0]
- * Projected after centroid normalisation:
- *   leftPct = 50 + (x - cx) * 3.6  → ~5% .. ~104%  (tightened from 4.2)
- *   topPct  = 50 + (y - cy) * 4.2  → ~14% .. ~88%  (tightened from 4.8)
- *   scale   = 0.7 + ((z + 20)/20) * 0.5  → 0.7 .. 1.2 (closer z = bigger)
- *   rot     = ±2.4° stable hash of slug
- */
+const SCALE_X = 36;    // px per authored x-unit
+const SCALE_Y = 38;    // px per authored y-unit
+const SCALE_Z = 30;    // px per authored z-unit (depth)
+const PERSPECTIVE = 1600; // CSS perspective on the parent
+const CARD_W_VW = 8;
+
 function computeCentroid(arr) {
   if (arr.length === 0) return { cx: 0, cy: 0 };
   const xs = arr.map((a) => parseFloat(a.pos3?.x ?? 0));
@@ -45,110 +41,143 @@ function projectArtist(artist, centroid) {
   const x = parseFloat(artist.pos3?.x ?? 0);
   const y = parseFloat(artist.pos3?.y ?? 0);
   const z = parseFloat(artist.pos3?.z ?? 0);
-  const leftPct = 50 + (x - centroid.cx) * 3.6;
-  const topPct  = 50 + (y - centroid.cy) * 4.2;
-  // z range [-20..0] → t [0..1] → scale [0.7..1.2]
+  // Pixel offsets from the cluster origin, in 3D space.
+  const px = (x - centroid.cx) * SCALE_X;
+  const py = (y - centroid.cy) * SCALE_Y;
+  // Depth: authored z is negative (foam.org puts most cards behind the
+  // primary at z=0). Multiplying gives "back" cards negative translateZ
+  // so they recede from the camera.
+  const pz = z * SCALE_Z;
+  // Per-card "presence" scale based on z — closer cards a touch bigger.
+  // Combined with translateZ this reads as the perspective doing real
+  // work without the size ratio being absurd.
   const t = Math.max(0, Math.min(1, (z + 20) / 20));
-  const scale = 0.7 + t * 0.5;
+  const sizeScale = 0.7 + t * 0.5;
   const slug = artist.slug || "";
   let h = 0;
   for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
   const rot = ((h % 100) / 100 - 0.5) * 4.8;
-  return { leftPct, topPct, scale, rot };
+  return { px, py, pz, sizeScale, rot };
 }
 
-const CARD_W_VW = 8; // base card width in vw — PROJ.scale multiplies this
-
 export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick, activeFilter }) {
-  // Lock body scroll while the gallery is mounted; thumbnails are positioned
-  // absolutely in a fixed-height stage.
+  // Lock body scroll while the gallery is mounted.
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  // Compute the centroid once per artist set. Subtracting it inside the
-  // projection centers the constellation regardless of how the authored
-  // coordinates lean (currently small ~0.16, ~0.53 — but the data could
-  // shift if artists are added/removed and we want the spread to remain
-  // centered).
   const centroid = useMemo(() => computeCentroid(artists), [artists]);
   const PROJ = (a) => projectArtist(a, centroid);
 
-  /* Ball-physics cluster drag.
-   *
-   * Constraints are loose (±60% of viewport) so the cluster can be
-   * pushed comfortably off-center and is recovered by the user, not
-   * yanked back by a magnet. dragElastic 0.55 lets the user pull
-   * even further past the constraint while holding. The dragTransition
-   * tuning (power 0.7, timeConstant 750, bounceStiffness 50, bounceDamping
-   * 12) gives a 1.5–2 s glide on flick release, a soft cushion when
-   * the cluster overshoots, and at most one mild overshoot before
-   * settling — no perceptible snap-back.
-   *
-   * dragX/dragY are motion values so the wheel handler can apply
-   * inertia-typed `animate()` calls to the same transform without
-   * fighting framer-motion's matrix writer. */
-  const dragX = useMotionValue(0);
-  const dragY = useMotionValue(0);
+  /* Rotation motion values. rotY tracks horizontal pointer movement,
+   * rotX tracks vertical pointer movement. Both unconstrained — the
+   * cluster spins freely like a planet you flick. */
+  const rotY = useMotionValue(0);
+  const rotX = useMotionValue(0);
+  // Velocity for inertia after release.
+  const velY = useRef(0);
+  const velX = useRef(0);
+  const lastMove = useRef(0);
   const wrapperRef = useRef(null);
-  const [constraints, setConstraints] = useState({
-    left: -700,
-    right: 700,
-    top: -420,
-    bottom: 420,
-  });
+  const dragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, rotX: 0, rotY: 0 });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const update = () => {
-      const maxX = window.innerWidth * 0.6;
-      const maxY = window.innerHeight * 0.6;
-      setConstraints({ left: -maxX, right: maxX, top: -maxY, bottom: maxY });
+  // The composed transform string the cluster applies. rotateY runs
+  // first so vertical drag tilts the cluster in front-back rather than
+  // left-right after the horizontal spin.
+  const transform = useTransform(
+    [rotX, rotY],
+    ([rx, ry]) => `rotateY(${ry}deg) rotateX(${rx}deg)`
+  );
+
+  // Sensitivity: how many degrees per pixel of pointer travel.
+  const DPP = 0.32;
+
+  const onPointerDown = useCallback((e) => {
+    // Only drag on background — clicks on cards go through onClick.
+    // We still allow grab anywhere on the wrapper; the cards stop
+    // event propagation via their own onClick handling.
+    dragging.current = true;
+    dragStart.current = {
+      x: e.clientX,
+      y: e.clientY,
+      rotX: rotX.get(),
+      rotY: rotY.get(),
     };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
+    velY.current = 0;
+    velX.current = 0;
+    lastMove.current = performance.now();
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [rotX, rotY]);
 
-  // Wheel/trackpad pan with physics. Each tick fires an inertia-typed
-  // animate() so the cluster glides instead of teleporting to a new
-  // position. ctrlKey is preserved so pinch-zoom passes through.
+  const onPointerMove = useCallback((e) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    const newRotY = dragStart.current.rotY + dx * DPP;
+    const newRotX = dragStart.current.rotX - dy * DPP;
+    // Track velocity (px/ms) for the inertia release.
+    const now = performance.now();
+    const dt = Math.max(1, now - lastMove.current);
+    velY.current = (e.movementX * DPP) / dt;
+    velX.current = (-e.movementY * DPP) / dt;
+    lastMove.current = now;
+    rotY.set(newRotY);
+    rotX.set(newRotX);
+  }, [rotX, rotY]);
+
+  const onPointerUp = useCallback((e) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    // Apply inertia using framer-motion's animate(). Velocity is in
+    // deg/ms; multiply by 1000 to get deg/s which `animate(type:'decay')`
+    // expects. timeConstant 750 ms = same feel as the previous 2D drag.
+    const vY = velY.current * 1000;
+    const vX = velX.current * 1000;
+    animate(rotY, rotY.get() + vY * 0.4, {
+      type: "decay",
+      velocity: vY,
+      power: 0.7,
+      timeConstant: 750,
+    });
+    animate(rotX, rotX.get() + vX * 0.4, {
+      type: "decay",
+      velocity: vX,
+      power: 0.7,
+      timeConstant: 750,
+    });
+  }, [rotX, rotY]);
+
+  // Wheel: vertical wheel tips the cluster forward/back (rotX), shift+
+  // wheel or horizontal trackpad tilts left/right (rotY). Each tick
+  // applies a small impulse animated with inertia for a smooth feel.
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
     const onWheel = (e) => {
       if (e.ctrlKey) return;
       e.preventDefault();
-      const maxX = window.innerWidth * 0.6;
-      const maxY = window.innerHeight * 0.6;
-      const nx = Math.max(-maxX, Math.min(maxX, dragX.get() - e.deltaX * 1.2));
-      const ny = Math.max(-maxY, Math.min(maxY, dragY.get() - e.deltaY * 1.2));
-      animate(dragX, nx, {
+      const stepX = e.deltaY * 0.18;
+      const stepY = e.deltaX * 0.18;
+      animate(rotX, rotX.get() - stepX, {
         type: "inertia",
-        velocity: -e.deltaX * 8,
-        power: 0.4,
-        timeConstant: 400,
-        bounceStiffness: 50,
-        bounceDamping: 12,
-        min: -maxX,
-        max: maxX,
+        velocity: -stepX * 6,
+        power: 0.35,
+        timeConstant: 320,
       });
-      animate(dragY, ny, {
+      animate(rotY, rotY.get() + stepY, {
         type: "inertia",
-        velocity: -e.deltaY * 8,
-        power: 0.4,
-        timeConstant: 400,
-        bounceStiffness: 50,
-        bounceDamping: 12,
-        min: -maxY,
-        max: maxY,
+        velocity: stepY * 6,
+        power: 0.35,
+        timeConstant: 320,
       });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [dragX, dragY]);
+  }, [rotX, rotY]);
 
   return (
     <div
@@ -158,160 +187,162 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         inset: 0,
         zIndex: 5,
         overflow: "hidden",
+        perspective: `${PERSPECTIVE}px`,
       }}
     >
-      {/* Ball-physics drag wrapper.
-       *  power 0.7 throws further on a flick; timeConstant 750 lets
-       *  velocity decay over ~1.8 s; bounceStiffness 50 + bounceDamping
-       *  12 give a soft cushion (no snap-back) when overshooting the
-       *  constraint. dragElastic 0.55 lets the user pull the cluster
-       *  well past the constraint while holding. modifyTarget is the
-       *  identity so framer-motion never snaps to a rounded value. */}
-      <motion.div
+      {/* Pointer-event capture surface — covers the entire viewport so
+       *  the user can grab and rotate the cluster from any empty space.
+       *  Cards stop propagation in their own onClick to avoid starting
+       *  a rotation when the user really wants to navigate. */}
+      <div
         ref={wrapperRef}
-        drag
-        dragMomentum={true}
-        dragElastic={0.55}
-        dragConstraints={constraints}
-        dragTransition={{
-          power: 0.7,
-          timeConstant: 750,
-          bounceStiffness: 50,
-          bounceDamping: 12,
-          modifyTarget: (t) => t,
-        }}
-        whileDrag={{ cursor: "grabbing" }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         style={{
           position: "absolute",
           inset: 0,
-          width: "100%",
-          height: "100%",
-          cursor: "grab",
+          cursor: dragging.current ? "grabbing" : "grab",
           touchAction: "none",
-          x: dragX,
-          y: dragY,
+          transformStyle: "preserve-3d",
         }}
       >
-      {/* Phase 6: network-graph overlay. When a filter is active, draw
-       *  thin red lines between every pair of matching cards. The SVG
-       *  lives INSIDE the drag wrapper at 100% × 100% so the lines
-       *  translate WITH the cards on drag; coords use the same
-       *  leftPct / topPct projection PROJ() produces for cards. */}
-      {activeFilter && artists.length > 1 && (
-        <svg
-          aria-hidden="true"
+        {/* The rotating cluster. transformStyle: preserve-3d lets the
+         *  child cards keep their 3D depth as the cluster spins. */}
+        <motion.div
           style={{
             position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            pointerEvents: "none",
-            zIndex: 15,
-            overflow: "visible",
+            left: "50%",
+            top: "50%",
+            width: 0,
+            height: 0,
+            transformStyle: "preserve-3d",
+            transform,
           }}
-          preserveAspectRatio="none"
         >
-          {(() => {
-            const pts = artists.map((a) => PROJ(a));
-            const lines = [];
-            for (let i = 0; i < pts.length; i++) {
-              for (let j = i + 1; j < pts.length; j++) {
-                lines.push(
-                  <line
-                    key={`${i}-${j}`}
-                    x1={`${pts[i].leftPct}%`}
-                    y1={`${pts[i].topPct}%`}
-                    x2={`${pts[j].leftPct}%`}
-                    y2={`${pts[j].topPct}%`}
-                    stroke="#E63B4F"
-                    strokeWidth="1"
-                    opacity="0.55"
-                  />
-                );
-              }
-            }
-            return lines;
-          })()}
-        </svg>
-      )}
-      {artists.map((a, i) => {
-        const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
-        const { leftPct, topPct, scale, rot } = PROJ(a);
-        const isHovered = hoveredSlug === a.slug;
-        const isDimmed  = hoveredSlug && !isHovered;
-        const isPrimary = !!a.isPrimary;
-
-        const cardWidth = `${CARD_W_VW * scale}vw`;
-        return (
-          <motion.button
-            key={a.slug}
-            onPointerEnter={() => onHover?.(a)}
-            onPointerLeave={() => onLeave?.(a)}
-            onClick={() => onPick?.(a)}
-            aria-label={`${a.exhibition || a.name} by ${a.name}`}
-            initial={{ opacity: 0, scale: 0.85, rotate: 0 }}
-            animate={{
-              /* Phase 4 (video review): hovered card pops to 1.8x
-               * (was 1.08) with a spring; siblings vanish fully
-               * (opacity 0, also pointerEvents none so they can't
-               * be raycast). */
-              opacity: isDimmed ? 0 : 1,
-              scale: isHovered ? 1.8 : 1,
-              rotate: rot,
-            }}
-            transition={{
-              opacity: { duration: isDimmed ? 0.3 : 0.4, ease: "easeOut" },
-              scale: isHovered
-                ? { type: "spring", stiffness: 200, damping: 26 }
-                : { duration: 0.3, ease: [0.22, 1, 0.36, 1] },
-              rotate: { duration: 0.7, ease: "easeOut" },
-              layout: { duration: 1.2, ease: [0.65, 0, 0.35, 1] },
-              delay: isPrimary ? 0 : 0.05 * (i % 8),
-            }}
-            style={{
-              position: "absolute",
-              left: `${leftPct}%`,
-              top: `${topPct}%`,
-              // No `transform: translate(-50%, -50%)` here — framer-motion would
-              // overwrite it when animating scale/rotate. We use x/y as motion
-              // values instead, which framer-motion composes into its matrix.
-              x: "-50%",
-              y: "-50%",
-              width: cardWidth,
-              aspectRatio: "4 / 3",
-              padding: 0,
-              border: 0,
-              background: "transparent",
-              cursor: "pointer",
-              /* Dimmed siblings opt OUT of pointer events so the
-               * hovered card stays the only target — prevents
-               * accidental ghost-click on a 0-opacity neighbour. */
-              pointerEvents: isDimmed ? "none" : "auto",
-              willChange: "transform, opacity",
-              zIndex: isHovered ? 20 : isPrimary ? 12 : 10,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={heroSrc}
-              alt=""
-              draggable={false}
+          {/* Filter network graph — 2D SVG overlaid behind the cluster.
+           *  It's a flat plane sitting at z=0 so it tilts with the
+           *  cluster's rotation, which gives a nice planar grid feel. */}
+          {activeFilter && artists.length > 1 && (
+            <svg
+              aria-hidden="true"
               style={{
-                display: "block",
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+                position: "absolute",
+                left: -2000,
+                top: -2000,
+                width: 4000,
+                height: 4000,
+                pointerEvents: "none",
+                overflow: "visible",
+                transformStyle: "preserve-3d",
               }}
-            />
-            {/* Phase 6: the per-card "enter portfolio →" pill is removed.
-             *  foam.org shows the exhibition title + artist name as a
-             *  single bottom-centre caption instead; TalentExperience.js
-             *  owns that caption since it spans the viewport, not the
-             *  card. */}
-          </motion.button>
-        );
-      })}
-      </motion.div>
+              viewBox="-2000 -2000 4000 4000"
+              preserveAspectRatio="none"
+            >
+              {(() => {
+                const pts = artists.map((a) => PROJ(a));
+                const lines = [];
+                for (let i = 0; i < pts.length; i++) {
+                  for (let j = i + 1; j < pts.length; j++) {
+                    lines.push(
+                      <line
+                        key={`${i}-${j}`}
+                        x1={pts[i].px}
+                        y1={pts[i].py}
+                        x2={pts[j].px}
+                        y2={pts[j].py}
+                        stroke="#E63B4F"
+                        strokeWidth="1"
+                        opacity="0.55"
+                      />
+                    );
+                  }
+                }
+                return lines;
+              })()}
+            </svg>
+          )}
+
+          {artists.map((a, i) => {
+            const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
+            const { px, py, pz, sizeScale, rot } = PROJ(a);
+            const isHovered = hoveredSlug === a.slug;
+            const isDimmed = hoveredSlug && !isHovered;
+            const isPrimary = !!a.isPrimary;
+            const cardWidthVw = CARD_W_VW * sizeScale;
+
+            return (
+              <motion.button
+                key={a.slug}
+                onPointerEnter={() => onHover?.(a)}
+                onPointerLeave={() => onLeave?.(a)}
+                onClick={(e) => {
+                  // Stop the rotation drag from also treating this as a
+                  // pointer-up release of an empty-space drag — if the
+                  // pointer barely moved this still registers as a click.
+                  e.stopPropagation();
+                  onPick?.(a);
+                }}
+                aria-label={`${a.exhibition || a.name} by ${a.name}`}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{
+                  opacity: isDimmed ? 0 : 1,
+                  scale: isHovered ? 1.8 : 1,
+                  rotate: rot,
+                }}
+                transition={{
+                  opacity: { duration: isDimmed ? 0.3 : 0.4, ease: "easeOut" },
+                  scale: isHovered
+                    ? { type: "spring", stiffness: 200, damping: 26 }
+                    : { duration: 0.3, ease: [0.22, 1, 0.36, 1] },
+                  rotate: { duration: 0.7, ease: "easeOut" },
+                  delay: isPrimary ? 0 : 0.05 * (i % 8),
+                }}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  // 3D placement: translate into position FIRST, then
+                  // shift back by half-size so the card centers on (px, py, pz).
+                  // framer-motion's `rotate` and `scale` animate ON TOP of
+                  // this CSS transform via its `transform` write — they
+                  // appear as additional matrix factors, preserving the
+                  // 3D placement. (framer-motion writes transform LAST,
+                  // so its rotate/scale wrap around our translate3d.)
+                  transform: `translate3d(${px}px, ${py}px, ${pz}px) translate(-50%, -50%)`,
+                  width: `${cardWidthVw}vw`,
+                  aspectRatio: "4 / 3",
+                  padding: 0,
+                  border: 0,
+                  background: "transparent",
+                  cursor: "pointer",
+                  pointerEvents: isDimmed ? "none" : "auto",
+                  willChange: "transform, opacity",
+                  zIndex: isHovered ? 20 : isPrimary ? 12 : 10,
+                  // Each card preserves 3D so its scale/rotate inside the
+                  // cluster's preserve-3d parent retains depth ordering.
+                  transformStyle: "preserve-3d",
+                  backfaceVisibility: "hidden",
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={heroSrc}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              </motion.button>
+            );
+          })}
+        </motion.div>
+      </div>
     </div>
   );
 }
