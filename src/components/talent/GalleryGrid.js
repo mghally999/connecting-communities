@@ -67,7 +67,7 @@ const PROJ = (artist) => {
 
 const CARD_W_VW = 8; // base card width in vw — PROJ.scale multiplies this
 
-export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick }) {
+export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick, activeFilter }) {
   // Lock body scroll while the gallery is mounted; thumbnails are positioned
   // absolutely in a fixed-height stage.
   useEffect(() => {
@@ -101,6 +101,48 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
           cursor: "grab",
         }}
       >
+      {/* Phase 6: network-graph overlay. When a filter is active, draw
+       *  thin red lines between every pair of matching cards. The SVG
+       *  lives INSIDE the drag wrapper at 100% × 100% so the lines
+       *  translate WITH the cards on drag; coords use the same
+       *  leftPct / topPct projection PROJ() produces for cards. */}
+      {activeFilter && artists.length > 1 && (
+        <svg
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            zIndex: 15,
+            overflow: "visible",
+          }}
+          preserveAspectRatio="none"
+        >
+          {(() => {
+            const pts = artists.map((a) => PROJ(a));
+            const lines = [];
+            for (let i = 0; i < pts.length; i++) {
+              for (let j = i + 1; j < pts.length; j++) {
+                lines.push(
+                  <line
+                    key={`${i}-${j}`}
+                    x1={`${pts[i].leftPct}%`}
+                    y1={`${pts[i].topPct}%`}
+                    x2={`${pts[j].leftPct}%`}
+                    y2={`${pts[j].topPct}%`}
+                    stroke="#E63B4F"
+                    strokeWidth="1"
+                    opacity="0.55"
+                  />
+                );
+              }
+            }
+            return lines;
+          })()}
+        </svg>
+      )}
       {artists.map((a, i) => {
         const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
         const { leftPct, topPct, scale, rot } = PROJ(a);

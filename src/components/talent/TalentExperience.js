@@ -126,10 +126,21 @@ export default function TalentExperience({ initialSlug = null }) {
 
   /* ---------- bg colour (hover accent crossfade) ---------- */
 
-  const bgTarget =
-    phase === "intro" || phase === "hero-zoom"
-      ? "#000000"
-      : hoveredArtist?.accent || "#ffffff";
+  /* bg target precedence:
+   *   intro / hero-zoom  → black (the photo cycle layer sits on top)
+   *   hover any card     → that artist's accent
+   *   filter active (no hover) → BLACK (network-graph mode, per Phase 6)
+   *   gallery default    → white */
+  let bgTarget;
+  if (phase === "intro" || phase === "hero-zoom") {
+    bgTarget = "#000000";
+  } else if (hoveredArtist) {
+    bgTarget = hoveredArtist.accent;
+  } else if (activeFilter) {
+    bgTarget = "#000000";
+  } else {
+    bgTarget = "#ffffff";
+  }
 
   return (
     <LayoutGroup id="talent">
@@ -173,6 +184,7 @@ export default function TalentExperience({ initialSlug = null }) {
               <GalleryGrid
                 artists={visibleArtists.filter((a) => !a._hiddenByFilter)}
                 hoveredSlug={hoveredSlug}
+                activeFilter={activeFilter}
                 onHover={(a) => setHovered(a.slug)}
                 onLeave={() => setHovered(null)}
                 onPick={(a) => enterPortfolio(a)}
