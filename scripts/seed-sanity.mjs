@@ -18,7 +18,26 @@
  */
 
 import { createClient } from "@sanity/client";
-import "dotenv/config"; // optional — works without if env is exported
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+/* Tiny .env.local loader — Next.js loads .env.local automatically but
+ * a plain `node script.mjs` does not. We parse the file ourselves so
+ * `node scripts/seed-sanity.mjs` works without --env-file or dotenv. */
+const here = dirname(fileURLToPath(import.meta.url));
+const envPath = resolve(here, "..", ".env.local");
+try {
+  const raw = readFileSync(envPath, "utf8");
+  for (const line of raw.split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (!m) continue;
+    if (m[1].startsWith("#")) continue;
+    if (!process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, "");
+  }
+} catch {
+  // .env.local missing — fall back to whatever's in process.env
+}
 
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
 const dataset   = process.env.NEXT_PUBLIC_SANITY_DATASET || "production";
