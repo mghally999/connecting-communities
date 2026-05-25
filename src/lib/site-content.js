@@ -101,14 +101,33 @@ export const homeContent = {
     {
       label: "Connectivity",
       image: "/images/about/08-sector-connectivity.jpg",
+      href: "https://trac.africa/",
     },
-    { label: "FinTech", image: "/images/home/06-partner-fintech-arch.jpg" },
-    { label: "EdTech", image: "/images/home/05-partner-edtech-tree.jpg" },
-    { label: "WashTech", image: "/images/about/09-sector-washtech.jpg" },
-    { label: "AgriTech", image: "/images/about/11-sector-agritech.jpg" },
+    {
+      label: "FinTech",
+      image: "/images/home/06-partner-fintech-arch.jpg",
+      href: "https://aspire-finance.co/",
+    },
+    {
+      label: "EdTech",
+      image: "/images/home/05-partner-edtech-tree.jpg",
+      href: "https://aka-partners.com/our-sectors/#edtech",
+    },
+    {
+      label: "WashTech",
+      image: "/images/about/09-sector-washtech.jpg",
+      href: "https://aquasol-tech.com/",
+    },
+    {
+      label: "AgriTech",
+      image: "/images/about/11-sector-agritech.jpg",
+      href: "https://aka-partners.com/our-sectors/#agritech",
+    },
     {
       label: "Tele-conferencing",
       image: "/images/about/10-sector-teleconferencing.jpg",
+      // No external partner site yet.
+      href: null,
     },
   ],
 

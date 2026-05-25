@@ -44,23 +44,47 @@ const Track = styled.div`
   &::-webkit-scrollbar { display: none; }
 `;
 
-const Slide = styled.div`
+/* Slide is either an <a> (when the sector has an external URL) or a
+ * plain <div> (e.g. tele-conferencing, no partner site yet). Both
+ * share the same visual treatment and hover lift; only the anchor
+ * variant shows the "Learn more →" hint pill on hover. */
+const slideStyle = `
   flex: 0 0 calc((100% - 2.5rem) / 3);
   scroll-snap-align: start;
   position: relative;
   aspect-ratio: 16 / 11;
   overflow: hidden;
-  background: ${({ theme }) => theme.colors.skyBlueLight};
+  background: var(--theme-cream, #f4eee5);
   transition:
     transform 420ms cubic-bezier(.22,1,.36,1),
     box-shadow 420ms cubic-bezier(.22,1,.36,1);
   box-shadow: 0 1px 6px rgba(11,16,24,0.04);
-  & > * { transition: transform 620ms cubic-bezier(.22,1,.36,1); }
+  text-decoration: none;
+  color: inherit;
+`;
+
+const SlideLink = styled.a`
+  ${slideStyle}
+  cursor: pointer;
+  & > .slide-media { transition: transform 620ms cubic-bezier(.22,1,.36,1); }
   &:hover {
     transform: translateY(-6px);
     box-shadow: 0 18px 36px rgba(11,16,24,0.14);
   }
-  &:hover > * { transform: scale(1.06); }
+  &:hover > .slide-media { transform: scale(1.06); }
+  &:hover .learn-pill { opacity: 1; transform: translateY(0); }
+  @media (max-width: 1024px) { flex-basis: calc((100% - 1.25rem) / 2); }
+  @media (max-width: 640px)  { flex-basis: 86%; }
+`;
+
+const SlideStatic = styled.div`
+  ${slideStyle}
+  & > .slide-media { transition: transform 620ms cubic-bezier(.22,1,.36,1); }
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 36px rgba(11,16,24,0.14);
+  }
+  &:hover > .slide-media { transform: scale(1.06); }
   @media (max-width: 1024px) { flex-basis: calc((100% - 1.25rem) / 2); }
   @media (max-width: 640px)  { flex-basis: 86%; }
 `;
@@ -76,6 +100,28 @@ const Label = styled.div`
   font-weight: ${({ theme }) => theme.fontWeights.semibold};
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
   letter-spacing: -0.005em;
+  pointer-events: none;
+`;
+
+const LearnPill = styled.span`
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  z-index: 2;
+  background: ${({ theme }) => theme.colors.orange};
+  color: white;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 260ms ease-out,
+    transform 260ms cubic-bezier(.22,1,.36,1);
   pointer-events: none;
 `;
 
@@ -148,17 +194,35 @@ export default function PartnerCarousel({ data }) {
             ‹
           </Arrow>
           <Track ref={ref} role="region" aria-label="Partners">
-            {data.partnerSlides?.map((s, i) => (
-              <Slide key={s.label + i}>
-                <SmartImage
-                  src={s.image}
-                  alt={s.label}
-                  fallbackLabel={s.label}
-                  style={{ filter: "brightness(0.7)" }}
-                />
-                <Label>{s.label}</Label>
-              </Slide>
-            ))}
+            {data.partnerSlides?.map((s, i) => {
+              const inner = (
+                <>
+                  <div className="slide-media" style={{ position: "absolute", inset: 0 }}>
+                    <SmartImage
+                      src={s.image}
+                      alt={s.label}
+                      fallbackLabel={s.label}
+                      style={{ filter: "brightness(0.7)" }}
+                    />
+                  </div>
+                  <Label>{s.label}</Label>
+                  {s.href && <LearnPill className="learn-pill">Learn more →</LearnPill>}
+                </>
+              );
+              return s.href ? (
+                <SlideLink
+                  key={s.label + i}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${s.label} — learn more (opens in a new tab)`}
+                >
+                  {inner}
+                </SlideLink>
+              ) : (
+                <SlideStatic key={s.label + i}>{inner}</SlideStatic>
+              );
+            })}
           </Track>
           <Arrow
             type="button"
