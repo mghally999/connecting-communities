@@ -73,10 +73,12 @@ export default function Intro({ phase, heroArtist, onIntroComplete }) {
   }, [phase]);
 
   // Step 2: advance through the middle of the cycle (0 → N-2 → N-1).
-  // Excludes the last photo, which gets its own longer hold below.
+  // Photos flip every 500 ms — much faster than the 1500 ms first cut,
+  // matching foam.org's rapid intro montage. The last photo is excluded
+  // from this fast cycle and gets its own longer hold below.
   useEffect(() => {
     if (cycleIdx < 0 || cycleIdx >= N - 1) return;
-    const t = setTimeout(() => setCycleIdx((i) => i + 1), 1500);
+    const t = setTimeout(() => setCycleIdx((i) => i + 1), 500);
     return () => clearTimeout(t);
   }, [cycleIdx, N]);
 
@@ -125,12 +127,12 @@ export default function Intro({ phase, heroArtist, onIntroComplete }) {
         {phase === "intro" && photoArtist && (
           <motion.div
             key={`cycle-${photoIdx}`}
-            initial={{ opacity: 0, scale: 1.04 }}
+            initial={{ opacity: 0, scale: 1.02 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{
-              opacity: { duration: 0.6, ease: "easeInOut" },
-              scale: { duration: 1.8, ease: [0.165, 0.84, 0.44, 1] },
+              opacity: { duration: 0.28, ease: "easeInOut" },
+              scale: { duration: 0.6, ease: [0.165, 0.84, 0.44, 1] },
             }}
             style={{
               position: "fixed",
