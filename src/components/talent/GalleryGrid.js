@@ -30,12 +30,13 @@ const IDLE_DRIFT_DEG_PER_SEC = 3.5;    // continuous rightward yaw
 const ZOOM_MIN = 0.45;
 const ZOOM_MAX = 2.4;
 
-/* Rotation limits — the sphere stops at ±35° on both axes. Tight
- * enough that the user always sees the same front face and never
- * gets disorientated, loose enough to nudge it in any direction.
- * Inertia decay clamps to the same bounds. */
-const USER_YAW_LIMIT = 35;
-const USER_PITCH_LIMIT = 35;
+/* Rotation limits.
+ *   Yaw (horizontal): UNBOUNDED — the user can spin the sphere fully
+ *                     left or right to inspect any face.
+ *   Pitch (vertical): clamped to ±45° so the cluster never flips upside
+ *                     down or tilts so far that the back hemisphere is
+ *                     pointed at the user. */
+const USER_PITCH_LIMIT = 45;
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
@@ -135,11 +136,9 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     if (!dragging.current) return;
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
-    const newYaw = clamp(
-      dragStart.current.yaw + dx * DPP,
-      -USER_YAW_LIMIT,
-      USER_YAW_LIMIT
-    );
+    /* Yaw: unbounded — full horizontal rotation in either direction.
+     * Pitch: clamped to ±USER_PITCH_LIMIT. */
+    const newYaw = dragStart.current.yaw + dx * DPP;
     const newPitch = clamp(
       dragStart.current.pitch - dy * DPP,
       -USER_PITCH_LIMIT,
@@ -160,13 +159,13 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
     const vY = velY.current * 1000;
     const vX = velX.current * 1000;
+    /* Yaw inertia: no min/max — the spin keeps going until decay
+     * brings it to rest. Pitch inertia: clamped to the ±45° lock. */
     animate(userYaw, userYaw.get() + vY * 0.3, {
       type: "decay",
       velocity: vY,
       power: 0.7,
       timeConstant: 700,
-      min: -USER_YAW_LIMIT,
-      max: USER_YAW_LIMIT,
     });
     animate(userPitch, userPitch.get() + vX * 0.3, {
       type: "decay",
