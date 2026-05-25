@@ -42,25 +42,30 @@ import { placeholderImage } from "@/lib/talent-placeholder";
  *   scale = 0.28 .. 1.15  (closer z = bigger)
  *   rot   = ±2.4° hashed off the slug
  */
-/* Phase 5: widen the position spread (x*4.5, y*5.5) so cards push out
- * to the viewport edges instead of clustering centre. Per-card scale
- * and primary-multiplier removed — all cards are now equal size, per
- * foam.org's reference (screenshots/index_y800.png + drag_*.png show
- * a uniform constellation, not a hero+satellites layout). */
+/* Phase 3 (video review): the earlier x*4.5/y*5.5 spread pushed half
+ * the cards off-screen on landing; only ~3 visible without drag. The
+ * new video review showed foam's gallery has cards SCATTERED across
+ * the viewport with whitespace between them AND with visible size
+ * variation (z-depth). Tightened spread to x*4.2/y*4.8 and added a
+ * 0.7–1.2 per-card scale variation driven by the authored z value. */
 const PROJ = (artist) => {
   const x = parseFloat(artist.pos3?.x ?? 0);
   const y = parseFloat(artist.pos3?.y ?? 0);
-  const leftPct = 50 + x * 4.5;
-  const topPct  = 50 + y * 5.5;
+  const z = parseFloat(artist.pos3?.z ?? 0);
+  const leftPct = 50 + x * 4.2;
+  const topPct  = 50 + y * 4.8;
+  // z range [-20..0] → t [0..1] → scale [0.7..1.2]
+  const t = Math.max(0, Math.min(1, (z + 20) / 20));
+  const scale = 0.7 + t * 0.5;
   // Stable per-slug rotation: hash slug chars to ±2.4°
   const slug = artist.slug || "";
   let h = 0;
   for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) | 0;
   const rot = ((h % 100) / 100 - 0.5) * 4.8;
-  return { leftPct, topPct, rot };
+  return { leftPct, topPct, scale, rot };
 };
 
-const CARD_W_VW = 8; // base card width in vw — uniform across all cards
+const CARD_W_VW = 8; // base card width in vw — PROJ.scale multiplies this
 
 export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, onPick }) {
   // Lock body scroll while the gallery is mounted; thumbnails are positioned
@@ -81,16 +86,13 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         overflow: "hidden",
       }}
     >
-      {/* Drag-to-pan canvas wrapper. The wrapper translates as a whole
-       * unit when the user drags; individual cards keep their absolute
-       * positioning inside it. Per foam.org reference (see
-       * foam-mega-run/foam-mega/site/interactions/index_drag_*.png),
-       * the gallery is a finite-bounded canvas you can shove around. */}
+      {/* Drag-to-pan canvas wrapper. dragMomentum was off (Phase 5)
+       *  but the new video review shows foam's gallery carries inertia.
+       *  Tightened constraints since the spread itself is tighter now. */}
       <motion.div
         drag
-        dragMomentum={false}
         dragElastic={0.05}
-        dragConstraints={{ left: -800, right: 800, top: -400, bottom: 400 }}
+        dragConstraints={{ left: -300, right: 300, top: -180, bottom: 180 }}
         whileTap={{ cursor: "grabbing" }}
         style={{
           width: "100%",
@@ -101,13 +103,12 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
       >
       {artists.map((a, i) => {
         const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
-        const { leftPct, topPct, rot } = PROJ(a);
+        const { leftPct, topPct, scale, rot } = PROJ(a);
         const isHovered = hoveredSlug === a.slug;
         const isDimmed  = hoveredSlug && !isHovered;
         const isPrimary = !!a.isPrimary;
 
-        // Uniform card width — primary-multiplier removed (Phase 5).
-        const cardWidth = `${CARD_W_VW}vw`;
+        const cardWidth = `${CARD_W_VW * scale}vw`;
         return (
           <motion.button
             key={a.slug}
