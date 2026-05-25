@@ -3,16 +3,13 @@ import { ARTISTS, findArtist } from "@/lib/talent-artists";
 import TalentExperience from "@/components/talent/TalentExperience";
 
 /**
- * /talent/[slug] is rendered by the SAME client component as /talent.
- * The route exists to provide SEO + direct deep-links + SSG; once the
- * client tree hydrates, all phase transitions stay inside that tree and
- * the URL is updated by history.pushState rather than the Next router.
+ * /ecosystem/[slug] is rendered by the SAME client component as
+ * /ecosystem. The route exists to provide SEO + direct deep-links +
+ * SSG; once the client tree hydrates, all phase transitions stay
+ * inside that tree and the URL is updated by history.pushState rather
+ * than the Next router.
  */
 
-/** Cheap fast-path: reject obviously-malformed slugs so we don't spend
- *  1.5 s rebuilding generateStaticParams on every junk prefetch a
- *  browser extension throws at us (we've seen e.g.
- *  /talent/[object%20Object] from a DOM-mutating extension). */
 function isValidSlugShape(s) {
   return typeof s === "string" && /^[a-z0-9][a-z0-9-]{0,80}$/i.test(s);
 }
@@ -23,11 +20,11 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  if (!isValidSlugShape(slug)) return { title: "Not found — Foam Talent" };
+  if (!isValidSlugShape(slug)) return { title: "Not found — Ecosystem" };
   const artist = findArtist(slug);
-  if (!artist) return { title: "Not found — Foam Talent" };
+  if (!artist) return { title: "Not found — Ecosystem" };
   return {
-    title: `${artist.name} — Foam Talent 2024`,
+    title: `${artist.name} — Ecosystem in Action`,
     description: artist.exhibition || artist.title,
   };
 }

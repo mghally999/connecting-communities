@@ -121,12 +121,6 @@ function Header({ navLinks }) {
   const [alpha, setAlpha] = useState(1);
   const [open, setOpen] = useState(false);
 
-  /* The /talent experience is a self-contained world (its own brand,
-   * its own foam wordmark, its own colour shifts). Bail out before
-   * rendering so neither the Bar nor the 92-px spacer ends up in the
-   * DOM there. */
-  if (pathname === "/talent" || pathname?.startsWith("/talent/")) return null;
-
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
@@ -152,6 +146,13 @@ function Header({ navLinks }) {
     },
     [pathname]
   );
+
+  /* Bail AFTER all hooks have run — React's rules of hooks require the
+   * same hook count on every render of a component, regardless of
+   * which page is mounted. Returning null before the hooks would
+   * trigger "Rendered fewer hooks than expected" when navigating
+   * between /ecosystem and other routes. */
+  if (pathname === "/ecosystem" || pathname?.startsWith("/ecosystem/")) return null;
 
   return (
     <>

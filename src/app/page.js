@@ -5,6 +5,7 @@ import ImpactStats from "@/components/home/ImpactStats";
 import PartnerCarousel from "@/components/home/PartnerCarousel";
 import ContactBlock from "@/components/ContactBlock";
 import OurModelJourney from "@/components/our-model/OurModelJourney";
+import Reveal from "@/components/Reveal";
 import { homeContent } from "@/lib/site-content";
 
 export const metadata = { title: "Home — Connecting Communities" };
@@ -15,17 +16,29 @@ export const metadata = { title: "Home — Connecting Communities" };
  * the brand narrative, and is then handed straight into the cinematic
  * scroll-driven hubsite tour — same component, same behaviour as on
  * the /our-model route.
+ *
+ * Sections without their own internal Reveal get wrapped at the page
+ * level so the whole site shares the same subtle fade-up entrance
+ * vibe as the cinematic pages — without doubling up on sections
+ * (WhyWeExist / OurApproach / ImpactStats) that already use Reveal
+ * internally.
  */
 export default function HomePage() {
   return (
     <>
-      <HomeHero data={homeContent} />
+      <Reveal>
+        <HomeHero data={homeContent} />
+      </Reveal>
       <WhyWeExist data={homeContent} />
       <OurApproach data={homeContent} />
       <ImpactStats data={homeContent} />
-      <PartnerCarousel data={homeContent} />
+      <Reveal>
+        <PartnerCarousel data={homeContent} />
+      </Reveal>
       <OurModelJourney />
-      <ContactBlock title={homeContent.contactTitle} ctaLabel={homeContent.contactCtaLabel} />
+      <Reveal>
+        <ContactBlock title={homeContent.contactTitle} ctaLabel={homeContent.contactCtaLabel} />
+      </Reveal>
     </>
   );
 }

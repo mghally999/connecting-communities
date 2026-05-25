@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * TalentExperience — single mounted client tree for the entire /talent route.
+ * TalentExperience — single mounted client tree for the entire /ecosystem route.
  *
- * ARCHITECTURE: there is ONE React tree from /talent through every
- * /talent/<slug> portfolio. We do NOT use Next.js router transitions for
+ * ARCHITECTURE: there is ONE React tree from /ecosystem through every
+ * /ecosystem/<slug> portfolio. We do NOT use Next.js router transitions for
  * the intro → gallery → portfolio sequence. Instead a phase state machine
  * controls what's visible and the URL syncs via history.pushState /
  * popstate so direct deep-links still work and the browser back button
@@ -20,7 +20,7 @@
  *                  with the rest.
  *     gallery    : 20 cards scattered. Hover, drag-with-momentum, and
  *                  filter overlay all live here.
- *     portfolio  : url → /talent/<slug> via pushState, <Portfolio/>
+ *     portfolio  : url → /ecosystem/<slug> via pushState, <Portfolio/>
  *                  mounts on top of the gallery (which stays mounted at
  *                  opacity 0 for snappy popstate back). Back button or
  *                  Escape returns. */
@@ -33,14 +33,13 @@ import Intro from "./Intro";
 import GalleryGrid from "./GalleryGrid";
 import CategoryChipsHud from "./CategoryChipsHud";
 import Portfolio from "./Portfolio";
-import FoamSidebar from "./FoamSidebar";
 import "@/styles/talent.css";
 
 // Primary artist sits at (0,0,0) in foam's authored layout.
 const PRIMARY = ARTISTS.find((a) => a.isPrimary) || ARTISTS[0];
 
 export default function TalentExperience({ initialSlug = null }) {
-  // Derive initial phase from the URL: deep-linking to /talent/<slug>
+  // Derive initial phase from the URL: deep-linking to /ecosystem/<slug>
   // mounts straight into 'portfolio' so direct links work without an
   // intro replay.
   const [phase, setPhase] = useState(() =>
@@ -66,7 +65,7 @@ export default function TalentExperience({ initialSlug = null }) {
 
   useEffect(() => {
     const onPop = () => {
-      const m = window.location.pathname.match(/^\/talent\/([^/]+)\/?$/);
+      const m = window.location.pathname.match(/^\/ecosystem\/([^/]+)\/?$/);
       if (m) {
         setActiveSlug(m[1]);
         setPhase("portfolio");
@@ -82,16 +81,16 @@ export default function TalentExperience({ initialSlug = null }) {
   const enterPortfolio = useCallback((artist) => {
     setActiveSlug(artist.slug);
     setPhase("portfolio");
-    if (window.location.pathname !== `/talent/${artist.slug}`) {
-      window.history.pushState(null, "", `/talent/${artist.slug}`);
+    if (window.location.pathname !== `/ecosystem/${artist.slug}`) {
+      window.history.pushState(null, "", `/ecosystem/${artist.slug}`);
     }
   }, []);
 
   const exitPortfolio = useCallback(() => {
     setActiveSlug(null);
     setPhase("gallery");
-    if (window.location.pathname !== "/talent") {
-      window.history.pushState(null, "", "/talent");
+    if (window.location.pathname !== "/ecosystem") {
+      window.history.pushState(null, "", "/ecosystem");
     }
   }, []);
 
@@ -149,8 +148,6 @@ export default function TalentExperience({ initialSlug = null }) {
           backgroundColor: bgTarget,
         }}
       >
-        <FoamSidebar state={phase === "intro" ? "intro" : phase === "portfolio" ? "portfolio" : "gallery"} />
-
         {/* Intro typography + 6-photo cycle (only during intro). Signals
          *  back via onIntroComplete when the cycle finishes; the parent
          *  flips phase → 'gallery' which crossfades the cycle photo out. */}

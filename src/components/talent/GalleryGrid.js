@@ -30,6 +30,17 @@ const IDLE_DRIFT_DEG_PER_SEC = 3.5;    // continuous rightward yaw
 const ZOOM_MIN = 0.45;
 const ZOOM_MAX = 2.4;
 
+/* Rotation limits — the sphere stops at ±35° on both axes. Tight
+ * enough that the user always sees the same front face and never
+ * gets disorientated, loose enough to nudge it in any direction.
+ * Inertia decay clamps to the same bounds. */
+const USER_YAW_LIMIT = 35;
+const USER_PITCH_LIMIT = 35;
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
 /* Fibonacci-sphere distribution — even spread on a unit sphere. */
 function fibonacciSphere(i, n) {
   const y = 1 - ((i + 0.5) / n) * 2;          // -1..1
@@ -124,8 +135,16 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
     if (!dragging.current) return;
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
-    const newYaw = dragStart.current.yaw + dx * DPP;
-    const newPitch = dragStart.current.pitch - dy * DPP;
+    const newYaw = clamp(
+      dragStart.current.yaw + dx * DPP,
+      -USER_YAW_LIMIT,
+      USER_YAW_LIMIT
+    );
+    const newPitch = clamp(
+      dragStart.current.pitch - dy * DPP,
+      -USER_PITCH_LIMIT,
+      USER_PITCH_LIMIT
+    );
     const now = performance.now();
     const dt = Math.max(1, now - lastMove.current);
     velY.current = (e.movementX * DPP) / dt;
@@ -146,12 +165,16 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
       velocity: vY,
       power: 0.7,
       timeConstant: 700,
+      min: -USER_YAW_LIMIT,
+      max: USER_YAW_LIMIT,
     });
     animate(userPitch, userPitch.get() + vX * 0.3, {
       type: "decay",
       velocity: vX,
       power: 0.7,
       timeConstant: 700,
+      min: -USER_PITCH_LIMIT,
+      max: USER_PITCH_LIMIT,
     });
   }, [userYaw, userPitch]);
 

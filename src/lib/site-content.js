@@ -12,8 +12,6 @@ export const siteSettings = {
     { label: "Home", href: "/" },
     { label: "About", href: "/about" },
     { label: "Our Model", href: "/our-model" },
-    { label: "Our Model 2", href: "/our-model-2" },
-    { label: "Our Model 3", href: "/our-model-3" },
     { label: "Ecosystem in Action", href: "/ecosystem" },
     { label: "Contact", href: "/contact" },
   ],

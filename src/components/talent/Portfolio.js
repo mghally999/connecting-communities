@@ -23,8 +23,8 @@
  * "inside doesn't fit" bug from the earlier vertical-scroll version.
  */
 
-import React, { useEffect, useMemo, useRef } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import ExhibitionSection from "./spreads/ExhibitionSection";
 import { nextArtist } from "@/lib/talent-artists";
 
@@ -166,11 +166,38 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
   const currentX = useRef(0);
   const lastTouchY = useRef(null);
 
+  /* When the user reaches the last (thank-you) spread the auto-advance
+   * timer starts. The progress motion value animates 0 → 1 over 3 s
+   * and is used to drive the fill width inside the view-next pill.
+   * If the user scrolls back, we cancel the animation and reset. */
+  const [onThankYou, setOnThankYou] = useState(false);
+  const prevAtEnd = useRef(false);
+  const progress = useMotionValue(0);
+  const progressWidth = useTransform(progress, (v) => `${v * 100}%`);
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
+
+  /* Auto-advance: when the thank-you spread is on-screen and there's
+   * a next artist, kick off a 3 s linear progress. On completion we
+   * navigate to the next artist. If the user scrolls back BEFORE the
+   * 3 s are up, the cleanup stops the animation and resets to 0. */
+  useEffect(() => {
+    progress.set(0);
+    if (!onThankYou || !next) return;
+    const controls = animate(progress, 1, {
+      duration: 3,
+      ease: "linear",
+      onComplete: () => onNavigate?.(next),
+    });
+    return () => {
+      controls.stop();
+      progress.set(0);
+    };
+  }, [onThankYou, next, progress, onNavigate]);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -218,6 +245,14 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
         currentX.current = targetX.current;
       }
       track.style.transform = `translate3d(${-currentX.current}px, 0, 0)`;
+      /* React state update is gated by a ref so we only setState on
+       * transition boundaries, not every frame. The threshold is half
+       * a spread width so we react before the user is fully settled. */
+      const reachedEnd = currentX.current > maxX() - window.innerWidth * 0.5;
+      if (reachedEnd !== prevAtEnd.current) {
+        prevAtEnd.current = reachedEnd;
+        setOnThankYou(reachedEnd);
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -398,15 +433,19 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
               <p style={{ marginTop: 48, fontSize: 16, opacity: 0.8 }}>
                 next: {next.name}
               </p>
-              {/* Phase 6 — view-next button parity with foam.org:
-               *  white pill outlined 1.5px black; full-height solid
-               *  black square on the LEFT; "view next exhibition"
-               *  centered text; black eye icon on the RIGHT. */}
+              {/* View-next pill with auto-advance progress fill.
+               *  Layout: black left square + label + eye icon, all
+               *  inside a relative container. A motion.div behind the
+               *  content fills horizontally over the 3 s timer so the
+               *  pill literally shows "loading to the next portfolio".
+               *  Clicking the button at any point bypasses the timer
+               *  and navigates immediately. */}
               <button
                 type="button"
                 onClick={() => onNavigate?.(next)}
                 style={{
                   marginTop: 24,
+                  position: "relative",
                   display: "inline-flex",
                   alignItems: "stretch",
                   background: "#fff",
@@ -416,11 +455,34 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
                   overflow: "hidden",
                   cursor: "pointer",
                   fontFamily: "inherit",
+                  minWidth: 320,
                 }}
               >
+                {/* Progress fill — animates 0 → 100% over 3 s. Sits
+                 *  underneath the label so the text reads inverted
+                 *  (mixBlendMode: difference) where the fill has
+                 *  passed and normal black where it hasn't. */}
+                <motion.div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    width: progressWidth,
+                    background: "#111",
+                    pointerEvents: "none",
+                    zIndex: 0,
+                  }}
+                />
                 <span
                   aria-hidden="true"
-                  style={{ width: 44, background: "#111" }}
+                  style={{
+                    width: 44,
+                    background: "#111",
+                    position: "relative",
+                    zIndex: 1,
+                  }}
                 />
                 <span
                   style={{
@@ -430,6 +492,9 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
                     fontWeight: 500,
                     display: "flex",
                     alignItems: "center",
+                    position: "relative",
+                    zIndex: 1,
+                    mixBlendMode: "difference",
                   }}
                 >
                   view next exhibition
@@ -440,6 +505,9 @@ export default function Portfolio({ artist, onClose, onNavigate }) {
                     color: "#111",
                     display: "flex",
                     alignItems: "center",
+                    position: "relative",
+                    zIndex: 1,
+                    mixBlendMode: "difference",
                   }}
                   aria-hidden="true"
                 >

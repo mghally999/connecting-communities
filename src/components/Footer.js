@@ -59,9 +59,9 @@ const Bar = styled.div`
 
 function Footer({ settings }) {
   const pathname = usePathname();
-  /* Match the Header: the /talent experience owns its own chrome and
-   * shouldn't sit above a global site footer. */
-  if (pathname === "/talent" || pathname?.startsWith("/talent/")) return null;
+  /* Match the Header: the /ecosystem experience owns its own chrome
+   * and shouldn't sit above a global site footer. */
+  if (pathname === "/ecosystem" || pathname?.startsWith("/ecosystem/")) return null;
 
   const cols = settings?.footerColumns || [];
   return (
