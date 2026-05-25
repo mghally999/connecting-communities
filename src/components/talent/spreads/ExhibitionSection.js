@@ -29,6 +29,7 @@
 
 import React from "react";
 import AudioRing from "./AudioRing";
+import { placeholderImage } from "@/lib/talent-placeholder";
 
 function pct(v) {
   if (v === null || v === undefined || v === "") return undefined;
@@ -45,12 +46,16 @@ function vh(v) {
   return `${n}vh`;
 }
 
-function ImageBlock({ s }) {
-  // Short-circuit: when the asset extraction couldn't resolve a local
-  // file for this section, src is null. Rendering <img src={null}> shows
-  // the alt text as a bare string with no image — looks like a broken
-  // image. Skip those blocks entirely.
-  if (!s.src) return null;
+function ImageBlock({ s, slug, idx }) {
+  // Per user mandate: behaviour > content. When the asset extraction
+  // couldn't resolve a local file, fall back to a deterministic
+  // picsum.photos placeholder seeded by `${slug}-${idx}` so each
+  // section gets a stable image across reloads. The previous version
+  // (commit e7761e0) returned null here, which hid the slot entirely
+  // and broke the editorial layout.
+  const resolvedSrc =
+    s.src ||
+    placeholderImage(slug, idx, s.free ? 1000 : 1600, s.free ? 1400 : 1200);
 
   if (s.free) {
     // Free-positioned overlay. Pin width to whatever fraction of the
@@ -73,7 +78,7 @@ function ImageBlock({ s }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={s.src}
+          src={resolvedSrc}
           alt={s.alt || ""}
           draggable={false}
           style={{
@@ -99,7 +104,7 @@ function ImageBlock({ s }) {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={s.src}
+        src={resolvedSrc}
         alt={s.alt || ""}
         loading="lazy"
         style={{
@@ -193,8 +198,32 @@ function QuoteBlock({ s }) {
   );
 }
 
+/** Black placeholder rectangle with a ▶ glyph, used in place of an
+ *  actual <video> when the source file is missing. Keeps the layout
+ *  intact (same aspect ratio) so behaviour parity work isn't blocked. */
+function VideoPlaceholder({ heightAttr }) {
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: heightAttr || "56vh",
+        background: "#0b0b0b",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "rgba(255,255,255,0.75)",
+        fontSize: 48,
+        letterSpacing: "0.05em",
+      }}
+      aria-label="Video placeholder"
+    >
+      ▶
+    </div>
+  );
+}
+
 function InlineVideoBlock({ s }) {
-  if (!s.src) return null;
   return (
     <section
       className="ex-inline-video"
@@ -203,45 +232,54 @@ function InlineVideoBlock({ s }) {
         maxWidth: "min(86vw, 1200px)",
       }}
     >
-      <video
-        src={s.src}
-        autoPlay
-        loop
-        muted
-        playsInline
-        style={{
-          width: "100%",
-          height: s.height ? vh(s.height) : "auto",
-          display: "block",
-          objectFit: "cover",
-        }}
-      >
-        {s.webm && <source src={s.webm} type="video/webm" />}
-      </video>
+      {s.src ? (
+        <video
+          src={s.src}
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            width: "100%",
+            height: s.height ? vh(s.height) : "auto",
+            display: "block",
+            objectFit: "cover",
+          }}
+        >
+          {s.webm && <source src={s.webm} type="video/webm" />}
+        </video>
+      ) : (
+        <VideoPlaceholder heightAttr={s.height ? vh(s.height) : "56vh"} />
+      )}
     </section>
   );
 }
 
 function VideoBlock({ s }) {
-  if (!s.src) return null;
   return (
     <section className="ex-video" style={{ margin: "12vh auto", maxWidth: "min(86vw, 1200px)" }}>
-      <video
-        src={s.src}
-        controls
-        poster={s.poster || undefined}
-        style={{ width: "100%", height: "auto", display: "block" }}
-      >
-        {s.webm && <source src={s.webm} type="video/webm" />}
-      </video>
+      {s.src ? (
+        <video
+          src={s.src}
+          controls
+          poster={s.poster || undefined}
+          style={{ width: "100%", height: "auto", display: "block" }}
+        >
+          {s.webm && <source src={s.webm} type="video/webm" />}
+        </video>
+      ) : (
+        <VideoPlaceholder heightAttr="56vh" />
+      )}
     </section>
   );
 }
 
 function PodcastBlock({ s }) {
-  // No src → don't render the empty audio shell. Same rationale as
-  // ImageBlock: skip rather than show a broken player.
-  if (!s.src) return null;
+  // When src is missing we still render the AudioRing ellipse shell so
+  // the layout reads. AudioRing's own missing-asset handling (HEAD
+  // probe → missing state) keeps clicks as no-ops without console
+  // noise. Title + duration come from the Storyblok data even when the
+  // audio file itself wasn't captured.
   return (
     <section
       className="ex-podcast"
@@ -254,8 +292,8 @@ function PodcastBlock({ s }) {
     >
       <AudioRing
         title={s.title}
-        caption={`▷ ${s.duration || ""}`}
-        src={s.src}
+        caption={`▷ ${s.duration || "00:00"}`}
+        src={s.src || null}
         duration={parseDuration(s.duration)}
       />
     </section>
@@ -303,9 +341,9 @@ function ViewerBlock() {
   );
 }
 
-export default function ExhibitionSection({ section }) {
+export default function ExhibitionSection({ section, slug, idx }) {
   switch (section.kind) {
-    case "image":             return <ImageBlock s={section} />;
+    case "image":             return <ImageBlock s={section} slug={slug} idx={idx} />;
     case "images":            return <ImagesBlock s={section} />;
     case "images-with-text":  return (
       <>

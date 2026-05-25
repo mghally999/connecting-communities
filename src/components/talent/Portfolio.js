@@ -127,10 +127,13 @@ export default function Portfolio({ artist, onClose }) {
         </div>
       </section>
 
-      {/* Sections — normal vertical document flow */}
+      {/* Sections — normal vertical document flow.
+       *  slug + idx are threaded so ImageBlock can seed a deterministic
+       *  picsum.photos placeholder when the original Storyblok asset
+       *  wasn't captured by the scrape. */}
       <div style={{ position: "relative", paddingBottom: "12vh" }}>
         {sections.map((s, i) => (
-          <ExhibitionSection key={i} section={s} />
+          <ExhibitionSection key={i} section={s} slug={artist.slug} idx={i} />
         ))}
       </div>
 

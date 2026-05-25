@@ -23,6 +23,7 @@
 
 import React, { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { placeholderImage } from "@/lib/talent-placeholder";
 
 /**
  * Project an artist's authored 3D (x, y, z) coordinate into 2D viewport space.
@@ -80,7 +81,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
       }}
     >
       {artists.map((a, i) => {
-        if (!a.hero) return null;
+        const heroSrc = a.hero || placeholderImage(a.slug, 0, 800, 1000);
         const { leftPct, topPct, scale, rot } = PROJ(a);
         const isHovered = hoveredSlug === a.slug;
         const isDimmed  = hoveredSlug && !isHovered;
@@ -133,7 +134,7 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={a.hero}
+              src={heroSrc}
               alt=""
               draggable={false}
               style={{
