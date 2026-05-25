@@ -19,7 +19,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { animate, motion, useMotionValue, useTransform } from "framer-motion";
+import { animate, motion, useMotionValue } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
 /* Scatter factors. The previous values (36 / 38) bunched the cluster
@@ -89,14 +89,6 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
   const wrapperRef = useRef(null);
   const dragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0, rotX: 0, rotY: 0 });
-
-  // The composed transform string the cluster applies. rotateY runs
-  // first so vertical drag tilts the cluster in front-back rather than
-  // left-right after the horizontal spin.
-  const transform = useTransform(
-    [rotX, rotY],
-    ([rx, ry]) => `rotateY(${ry}deg) rotateX(${rx}deg)`
-  );
 
   // Sensitivity: how many degrees per pixel of pointer travel.
   const DPP = 0.32;
@@ -215,7 +207,10 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         }}
       >
         {/* The rotating cluster. transformStyle: preserve-3d lets the
-         *  child cards keep their 3D depth as the cluster spins. */}
+         *  child cards keep their 3D depth as the cluster spins.
+         *  rotateX / rotateY are passed as native framer-motion props
+         *  (not via a composed `transform` string) so framer-motion's
+         *  matrix writer doesn't clobber the children's translate3d. */}
         <motion.div
           style={{
             position: "absolute",
@@ -224,7 +219,8 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
             width: 0,
             height: 0,
             transformStyle: "preserve-3d",
-            transform,
+            rotateX: rotX,
+            rotateY: rotY,
           }}
         >
           {/* Filter network graph — 2D SVG overlaid behind the cluster.
@@ -278,73 +274,82 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
             const isPrimary = !!a.isPrimary;
             const cardWidthVw = CARD_W_VW * sizeScale;
 
+            /* CRITICAL: split positioning and animation across two nodes.
+             *
+             * The outer <div> is plain HTML — its `transform: translate3d(...)`
+             * places the card in 3D space and stays untouched.
+             *
+             * The inner <motion.button> animates opacity / scale / rotate /
+             * hover. framer-motion writes its own `transform: matrix(...)`
+             * to whichever element it controls. If we put the translate3d
+             * on the motion.button it would be CLOBBERED every frame the
+             * scale/rotate animation runs — that's the bug where every
+             * card collapses to (0, 0, 0). Putting the 3D placement on a
+             * non-motion parent fixes it. */
             return (
-              <motion.button
+              <div
                 key={a.slug}
-                onPointerEnter={() => onHover?.(a)}
-                onPointerLeave={() => onLeave?.(a)}
-                onClick={(e) => {
-                  // Stop the rotation drag from also treating this as a
-                  // pointer-up release of an empty-space drag — if the
-                  // pointer barely moved this still registers as a click.
-                  e.stopPropagation();
-                  onPick?.(a);
-                }}
-                aria-label={`${a.exhibition || a.name} by ${a.name}`}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{
-                  opacity: isDimmed ? 0 : 1,
-                  scale: isHovered ? 1.8 : 1,
-                  rotate: rot,
-                }}
-                transition={{
-                  opacity: { duration: isDimmed ? 0.3 : 0.4, ease: "easeOut" },
-                  scale: isHovered
-                    ? { type: "spring", stiffness: 200, damping: 26 }
-                    : { duration: 0.3, ease: [0.22, 1, 0.36, 1] },
-                  rotate: { duration: 0.7, ease: "easeOut" },
-                  delay: isPrimary ? 0 : 0.05 * (i % 8),
-                }}
                 style={{
                   position: "absolute",
                   left: 0,
                   top: 0,
-                  // 3D placement: translate into position FIRST, then
-                  // shift back by half-size so the card centers on (px, py, pz).
-                  // framer-motion's `rotate` and `scale` animate ON TOP of
-                  // this CSS transform via its `transform` write — they
-                  // appear as additional matrix factors, preserving the
-                  // 3D placement. (framer-motion writes transform LAST,
-                  // so its rotate/scale wrap around our translate3d.)
                   transform: `translate3d(${px}px, ${py}px, ${pz}px) translate(-50%, -50%)`,
+                  transformStyle: "preserve-3d",
                   width: `${cardWidthVw}vw`,
                   aspectRatio: "4 / 3",
-                  padding: 0,
-                  border: 0,
-                  background: "transparent",
-                  cursor: "pointer",
-                  pointerEvents: isDimmed ? "none" : "auto",
-                  willChange: "transform, opacity",
                   zIndex: isHovered ? 20 : isPrimary ? 12 : 10,
-                  // Each card preserves 3D so its scale/rotate inside the
-                  // cluster's preserve-3d parent retains depth ordering.
-                  transformStyle: "preserve-3d",
-                  backfaceVisibility: "hidden",
+                  pointerEvents: isDimmed ? "none" : "auto",
+                  willChange: "transform",
                 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={heroSrc}
-                  alt=""
-                  draggable={false}
+                <motion.button
+                  onPointerEnter={() => onHover?.(a)}
+                  onPointerLeave={() => onLeave?.(a)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPick?.(a);
+                  }}
+                  aria-label={`${a.exhibition || a.name} by ${a.name}`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{
+                    opacity: isDimmed ? 0 : 1,
+                    scale: isHovered ? 1.8 : 1,
+                    rotate: rot,
+                  }}
+                  transition={{
+                    opacity: { duration: isDimmed ? 0.3 : 0.4, ease: "easeOut" },
+                    scale: isHovered
+                      ? { type: "spring", stiffness: 200, damping: 26 }
+                      : { duration: 0.3, ease: [0.22, 1, 0.36, 1] },
+                    rotate: { duration: 0.7, ease: "easeOut" },
+                    delay: isPrimary ? 0 : 0.05 * (i % 8),
+                  }}
                   style={{
                     display: "block",
                     width: "100%",
                     height: "100%",
-                    objectFit: "cover",
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    cursor: "pointer",
+                    willChange: "transform, opacity",
+                    backfaceVisibility: "hidden",
                   }}
-                />
-              </motion.button>
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={heroSrc}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </motion.button>
+              </div>
             );
           })}
         </motion.div>
