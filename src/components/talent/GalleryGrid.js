@@ -21,8 +21,8 @@
  * morphs into it on phase transition.
  */
 
-import React, { useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { motion, useMotionValue } from "framer-motion";
 import { placeholderImage } from "@/lib/talent-placeholder";
 
 /**
@@ -87,6 +87,61 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
   const centroid = useMemo(() => computeCentroid(artists), [artists]);
   const PROJ = (a) => projectArtist(a, centroid);
 
+  /* Phase 3 — cluster drag with momentum + elastic tether.
+   *
+   * The whole 20-card cluster is one draggable group. Constraints are
+   * proportional to viewport so the feel is consistent across screen
+   * sizes; they're set in a useEffect after mount (SSR-safe) and
+   * updated on window resize. dragMomentum + bounceStiffness:110 +
+   * bounceDamping:14 + power:0.42 + timeConstant:380 reproduces foam's
+   * "tethered balloons" inertia: short throw, soft settle, elastic
+   * bounce-back when pushed past the constraint.
+   *
+   * dragX/dragY are motion values so the wheel handler can pan the
+   * same transform without fighting framer-motion's matrix writer. */
+  const dragX = useMotionValue(0);
+  const dragY = useMotionValue(0);
+  const wrapperRef = useRef(null);
+  const [constraints, setConstraints] = useState({
+    left: -400,
+    right: 400,
+    top: -240,
+    bottom: 240,
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => {
+      const maxX = window.innerWidth * 0.35;
+      const maxY = window.innerHeight * 0.35;
+      setConstraints({ left: -maxX, right: maxX, top: -maxY, bottom: maxY });
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // Wheel/trackpad pan fallback. Updates the same x/y motion values
+  // the drag uses, with clamping against the live constraint window.
+  // ctrlKey is preserved so pinch-zoom (mac trackpads send wheel events
+  // with ctrlKey when pinching) passes through to the browser.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.ctrlKey) return;
+      e.preventDefault();
+      const dx = e.deltaX * 0.8;
+      const dy = e.deltaY * 0.8;
+      const nx = Math.max(constraints.left, Math.min(constraints.right, dragX.get() - dx));
+      const ny = Math.max(constraints.top, Math.min(constraints.bottom, dragY.get() - dy));
+      dragX.set(nx);
+      dragY.set(ny);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [constraints, dragX, dragY]);
+
   return (
     <div
       className="gallery-grid"
@@ -97,19 +152,33 @@ export default function GalleryGrid({ artists, hoveredSlug, onHover, onLeave, on
         overflow: "hidden",
       }}
     >
-      {/* Drag-to-pan canvas wrapper. dragMomentum was off (Phase 5)
-       *  but the new video review shows foam's gallery carries inertia.
-       *  Tightened constraints since the spread itself is tighter now. */}
+      {/* Phase 3 — cluster drag with momentum + elastic tether.
+       *  Custom dragTransition values (bounceStiffness 110, bounceDamping
+       *  14, power 0.42, timeConstant 380) match foam.org's settle feel —
+       *  defaults are too snappy. dragElastic 0.18 gives the rubber-band
+       *  pull past the constraint. The wrapper is the only drag target;
+       *  cards inside don't drag themselves. */}
       <motion.div
+        ref={wrapperRef}
         drag
-        dragElastic={0.05}
-        dragConstraints={{ left: -300, right: 300, top: -180, bottom: 180 }}
-        whileTap={{ cursor: "grabbing" }}
+        dragMomentum={true}
+        dragElastic={0.18}
+        dragConstraints={constraints}
+        dragTransition={{
+          bounceStiffness: 110,
+          bounceDamping: 14,
+          power: 0.42,
+          timeConstant: 380,
+        }}
+        whileDrag={{ cursor: "grabbing" }}
         style={{
           width: "100%",
           height: "100%",
           position: "relative",
           cursor: "grab",
+          touchAction: "none",
+          x: dragX,
+          y: dragY,
         }}
       >
       {/* Phase 6: network-graph overlay. When a filter is active, draw
